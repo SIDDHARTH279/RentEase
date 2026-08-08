@@ -1,7 +1,5 @@
 from pathlib import Path
 from decouple import config
-import rest_framework
-import rest_framework_simplejwt
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,15 +21,16 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'accounts',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    'accounts',
     'rest_framework',
-    'rest_framework_simplejwt'
+    'rest_framework_simplejwt',
+    "rest_framework_simplejwt.token_blacklist",
 ]
 
 MIDDLEWARE = [
@@ -128,13 +127,12 @@ STATIC_URL = "static/"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        "rest_framework_simplejwt.authentication.JWTAuthentication"
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-
-    'DEFAULT_PERMISSION_CLASSES': (
-        "rest_framework.permissions.IsAuthenticated"
-    )
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
 }
 
 
