@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:go_router/go_router.dart';
 
+import '../../../core/auth_utils.dart';
 import '../analytics/owner_analytics_screen.dart';
 import '../billing/owner_leases_screen.dart';
 import '../issues/owner_issues_screen.dart';
@@ -15,14 +14,7 @@ class OwnerHomeScreen extends StatefulWidget {
 }
 
 class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
-  final _storage = const FlutterSecureStorage();
   int _selectedIndex = 0;
-
-  Future<void> _logout() async {
-    await _storage.deleteAll();
-    if (!mounted) return;
-    context.go('/login');
-  }
 
   void _onNavTap(int index) {
     setState(() => _selectedIndex = index);
@@ -63,7 +55,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               child: Icon(Icons.person, color: Colors.white, size: 18),
             ),
             onSelected: (value) {
-              if (value == 'logout') _logout();
+              if (value == 'logout') logout(context);
             },
             itemBuilder: (_) => [
               const PopupMenuItem(

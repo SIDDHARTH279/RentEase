@@ -1,9 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/auth_utils.dart';
 
 class TenantHomeScreen extends StatefulWidget {
   const TenantHomeScreen({super.key});
@@ -13,8 +13,6 @@ class TenantHomeScreen extends StatefulWidget {
 }
 
 class _TenantHomeScreenState extends State<TenantHomeScreen> {
-  final _storage = const FlutterSecureStorage();
-
   Map<String, dynamic>? _lease;
   Map<String, dynamic>? _unit;
   bool _isLoading = true;
@@ -49,11 +47,6 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
     }
   }
 
-  Future<void> _logout() async {
-    await _storage.deleteAll();
-    if (!mounted) return;
-    context.go('/login');
-  }
 
   int _daysUntilDue(int dueDay) {
     final now = DateTime.now();
@@ -94,7 +87,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
               child: Icon(Icons.person, color: Colors.white, size: 18),
             ),
             onSelected: (value) {
-              if (value == 'logout') _logout();
+              if (value == 'logout') logout(context);
             },
             itemBuilder: (_) => [
               const PopupMenuItem(

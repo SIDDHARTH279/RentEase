@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../core/api_client.dart';
 import '../../core/notification_service.dart';
@@ -20,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _storage = const FlutterSecureStorage();
 
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
 
@@ -30,14 +32,36 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  @override
+  void initState() {
+    super.initState();
+    // Listen for sign-in events from GoogleSignIn v7 stream
+    GoogleSignIn.instance.authenticationEvents
+        .listen(_handleGoogleAuthEvent)
+        .onError((_) {});
+  }
+
+  void _handleGoogleAuthEvent(GoogleSignInAuthenticationEvent event) {
+    // Handled inline in _googleLogin; stream used for lightweight auth only
+  }
+
+  Future<void> _saveAndNavigate(Map<String, dynamic> data) async {
+    await _storage.write(key: accessTokenKey, value: data['access']);
+    await _storage.write(key: refreshTokenKey, value: data['refresh']);
+    await _storage.write(key: 'user_role', value: data['user']['role']);
+    if (!mounted) return;
+    registerFCMTokenAfterLogin();
+    final role = data['user']['role'] as String;
+    if (role == 'owner') {
+      context.go('/owner/home');
+    } else {
+      context.go('/tenant/home');
+    }
+  }
+
   Future<void> _login() async {
     if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
+    setState(() { _isLoading = true; _errorMessage = null; });
     try {
       final response = await apiClient.post(
         '/api/v1/auth/login/',
@@ -46,36 +70,42 @@ class _LoginScreenState extends State<LoginScreen> {
           'password': _passwordController.text,
         },
       );
-
-      await _storage.write(
-        key: accessTokenKey,
-        value: response.data['access'],
-      );
-      await _storage.write(
-        key: refreshTokenKey,
-        value: response.data['refresh'],
-      );
-      await _storage.write(
-        key: 'user_role',
-        value: response.data['user']['role'],
-      );
-
-      if (!mounted) return;
-      final role = response.data['user']['role'];
-      // Register FCM token now that JWT is stored
-      registerFCMTokenAfterLogin();
-      if (role == 'owner') {
-        context.go('/owner/home');
-      } else {
-        context.go('/tenant/home');
-      }
+      await _saveAndNavigate(response.data as Map<String, dynamic>);
     } on DioException catch (err) {
       setState(() {
-        _errorMessage = err.response?.data['error'] ??
+        _errorMessage = err.response?.data?['error'] ??
             'Login failed. Please check your connection and try again.';
       });
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _googleLogin() async {
+    setState(() { _isGoogleLoading = true; _errorMessage = null; });
+    try {
+      // v7 API: use singleton + authenticate()
+      final googleUser = await GoogleSignIn.instance.authenticate();
+      final googleAuth = googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      if (idToken == null) {
+        setState(() => _errorMessage = 'Google sign-in failed: no ID token.');
+        return;
+      }
+      final response = await apiClient.post(
+        '/api/v1/auth/google/',
+        data: {'id_token': idToken},
+      );
+      await _saveAndNavigate(response.data as Map<String, dynamic>);
+    } on DioException catch (err) {
+      setState(() {
+        _errorMessage = err.response?.data?['detail'] ??
+            'Google sign-in failed. Please try again.';
+      });
+    } catch (e) {
+      setState(() => _errorMessage = 'Google sign-in failed: $e');
+    } finally {
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
@@ -91,7 +121,7 @@ class _LoginScreenState extends State<LoginScreen> {
             height: size.height,
             child: Stack(
               children: [
-                // top decorative arc
+                // Top decorative arc
                 Positioned(
                   top: 0,
                   left: 0,
@@ -116,7 +146,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -140,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Manage your properties with ease',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.white.withOpacity(0.85),
+                            color: Colors.white.withValues(alpha: 0.85),
                             letterSpacing: 0.4,
                           ),
                         ),
@@ -149,22 +179,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                // login card
+                // Login card
                 Positioned(
-                  top: size.height * 0.32,
+                  top: size.height * 0.30,
                   left: 24,
                   right: 24,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
-                      vertical: 32,
+                      vertical: 28,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
+                          color: Colors.black.withValues(alpha: 0.08),
                           blurRadius: 24,
                           offset: const Offset(0, 8),
                         ),
@@ -185,15 +215,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Sign in to your owner account',
+                            'Sign in to your account',
                             style: TextStyle(
                               fontSize: 13,
                               color: Colors.grey.shade500,
                             ),
                           ),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 24),
 
-                          // email field
+                          // Email field
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
@@ -215,7 +245,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // password field
+                          // Password field
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
@@ -233,7 +263,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   color: Colors.grey.shade400,
                                 ),
                                 onPressed: () => setState(
-                                      () => _obscurePassword = !_obscurePassword,
+                                  () => _obscurePassword = !_obscurePassword,
                                 ),
                               ),
                             ),
@@ -245,25 +275,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                           ),
 
-                          // error message
+                          // Error message
                           if (_errorMessage != null) ...[
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 14),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
+                                  horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFFFEBEE),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
-                                    Icons.error_outline,
-                                    color: Color(0xFFD32F2F),
-                                    size: 18,
-                                  ),
+                                  const Icon(Icons.error_outline,
+                                      color: Color(0xFFD32F2F), size: 18),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
@@ -279,9 +304,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ],
 
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 24),
 
-                          // login button
+                          // Login button
                           SizedBox(
                             width: double.infinity,
                             height: 52,
@@ -291,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 backgroundColor: const Color(0xFF1A3C6E),
                                 foregroundColor: Colors.white,
                                 disabledBackgroundColor:
-                                const Color(0xFF1A3C6E).withOpacity(0.5),
+                                    const Color(0xFF1A3C6E).withValues(alpha: 0.5),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
                                 ),
@@ -299,21 +324,92 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               child: _isLoading
                                   ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Colors.white,
+                                      ),
+                                    )
                                   : const Text(
-                                'Login',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
+                                      'Login',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Divider
+                          Row(
+                            children: [
+                              Expanded(child: Divider(color: Colors.grey.shade300)),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Text(
+                                  'or',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade400,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ),
+                              Expanded(child: Divider(color: Colors.grey.shade300)),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // Google Sign-In button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: OutlinedButton(
+                              onPressed: _isGoogleLoading ? null : _googleLogin,
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.grey.shade300),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                backgroundColor: Colors.white,
+                              ),
+                              child: _isGoogleLoading
+                                  ? const SizedBox(
+                                      height: 22,
+                                      width: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Color(0xFF1A3C6E),
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Image.network(
+                                          'https://www.google.com/favicon.ico',
+                                          height: 20,
+                                          width: 20,
+                                          errorBuilder: (_, __, ___) => const Icon(
+                                            Icons.g_mobiledata_rounded,
+                                            size: 24,
+                                            color: Color(0xFF4285F4),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        const Text(
+                                          'Continue with Google',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w500,
+                                            color: Color(0xFF333333),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                             ),
                           ),
                         ],
@@ -340,7 +436,7 @@ class _LoginScreenState extends State<LoginScreen> {
       filled: true,
       fillColor: const Color(0xFFF5F7FA),
       contentPadding:
-      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: BorderSide.none,
