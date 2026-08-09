@@ -10,6 +10,8 @@ from .views import (
     LeaseDetailView,
     LeaseTenantListCreateView,
     LeaseTenantDetailView,
+    MyLeaseView,
+    MyUnitView,
 )
 
 urlpatterns = [
@@ -32,4 +34,8 @@ urlpatterns = [
     # LeaseTenant
     path("lease-tenants/", LeaseTenantListCreateView.as_view(), name="lease-tenant-list"),
     path("lease-tenants/<int:pk>/", LeaseTenantDetailView.as_view(), name="lease-tenant-detail"),
+
+    # Tenant-only
+    path("my-lease/", MyLeaseView.as_view(), name="my-lease"),
+    path("my-unit/", MyUnitView.as_view(), name="my-unit"),
 ]

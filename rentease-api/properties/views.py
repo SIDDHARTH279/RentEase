@@ -2,7 +2,7 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 
-from accounts.permissions import IsOwner
+from accounts.permissions import IsOwner, IsTenant
 from .models import Portfolio, Building, Unit, Lease, LeaseTenant
 from .serializers import (
     PortfolioSerializer,
@@ -116,3 +116,45 @@ class LeaseTenantDetailView(generics.RetrieveUpdateDestroyAPIView):
         return LeaseTenant.objects.filter(
             lease__unit__building__portfolio__owner=self.request.user
         )
+
+
+# ─── Tenant-only views ────────────────────────────────────────────────────────
+
+class MyLeaseView(generics.GenericAPIView):
+    permission_classes = [IsTenant]
+    serializer_class = LeaseSerializer
+
+    def get(self, request):
+        lease_tenant = LeaseTenant.objects.filter(
+            tenant=request.user,
+            lease__status=Lease.LeaseStatus.ACTIVE,
+        ).select_related("lease").first()
+
+        if not lease_tenant:
+            return Response(
+                {"detail": "No active lease found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.get_serializer(lease_tenant.lease)
+        return Response(serializer.data)
+
+
+class MyUnitView(generics.GenericAPIView):
+    permission_classes = [IsTenant]
+    serializer_class = UnitSerializer
+
+    def get(self, request):
+        lease_tenant = LeaseTenant.objects.filter(
+            tenant=request.user,
+            lease__status=Lease.LeaseStatus.ACTIVE,
+        ).select_related("lease__unit").first()
+
+        if not lease_tenant:
+            return Response(
+                {"detail": "No active lease found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = self.get_serializer(lease_tenant.lease.unit)
+        return Response(serializer.data)

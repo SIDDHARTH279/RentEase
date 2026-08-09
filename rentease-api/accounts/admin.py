@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User
+from .models import User, TenantInvite
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
@@ -22,3 +22,6 @@ class UserAdmin(BaseUserAdmin):
             "fields": ("email", "password1", "password2", "role", "is_staff", "is_superuser"),
         }),
     )
+
+
+admin.site.register(TenantInvite)

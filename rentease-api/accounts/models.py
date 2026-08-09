@@ -1,5 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+import uuid
+from django.utils import timezone
+from datetime import timedelta
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 
@@ -55,6 +59,27 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
 
     objects = UserManager()
+
+    def __str__(self):
+        return self.email
+
+
+def invite_expiry():
+    return timezone.now() + timedelta(days=7)
+
+class TenantInvite(models.Model):
+    email = models.EmailField()
+    lease = models.ForeignKey('properties.Lease', on_delete=models.CASCADE, related_name='invites')
+    rent_share_pct = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=100.00,
+        validators=[MinValueValidator(0), MaxValueValidator(100)]
+    )
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    is_accepted = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(default=invite_expiry)
 
     def __str__(self):
         return self.email
