@@ -38,6 +38,7 @@ dependencies:
   flutter_secure_storage:
   go_router:
   flutter_riverpod:
+  image_picker:
 
 dev_dependencies:
   flutter_test:

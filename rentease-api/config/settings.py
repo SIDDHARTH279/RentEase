@@ -18,12 +18,19 @@ DEBUG = True
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "*"]
 
 
+import os
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+
 # Application definition
 
 INSTALLED_APPS = [
     'accounts',
     "properties",
     "billing",
+    "issues",
     "django_celery_beat",
     "django.contrib.admin",
     "django.contrib.auth",

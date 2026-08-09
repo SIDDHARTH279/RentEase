@@ -61,7 +61,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       final role = response.data['user']['role'];
-
       if (role == 'owner') {
         context.go('/owner/home');
       } else {

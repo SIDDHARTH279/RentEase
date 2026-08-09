@@ -7,6 +7,7 @@ import '../features/owner/home/owner_home_screen.dart';
 import '../features/owner/billing/owner_billing_screen.dart';
 import '../features/tenant/home/tenant_home_screen.dart';
 import '../features/tenant/billing/tenant_billing_screen.dart';
+import '../features/tenant/issues/tenant_issues_screen.dart';
 import 'api_client.dart';
 
 final _storage = const FlutterSecureStorage();
@@ -61,6 +62,11 @@ final appRouter = GoRouter(
           unitNumber: extra['unitNumber'] as String,
         );
       },
+    ),
+    GoRoute(
+      path: '/tenant/issues',
+      name: 'tenant-issues',
+      builder: (context, state) => const TenantIssuesScreen(),
     ),
   ],
 );

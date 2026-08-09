@@ -431,7 +431,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
                 icon: Icons.build_outlined,
                 label: 'Raise Issue',
                 color: const Color(0xFFE65100),
-                onTap: () {},
+                onTap: () => context.push('/tenant/issues'),
               ),
             ),
             const SizedBox(width: 12),

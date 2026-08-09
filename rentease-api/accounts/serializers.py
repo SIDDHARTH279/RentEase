@@ -2,7 +2,6 @@ from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from .models import User, TenantInvite
-from properties.models import Lease, LeaseTenant
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -44,38 +43,27 @@ class InviteTenantSerializer(serializers.Serializer):
     )
 
     def validate(self, attrs):
+        from properties.models import Lease, LeaseTenant
         request = self.context["request"]
-        email = attrs["email"]
-        lease_id = attrs["lease_id"]
 
         try:
-            lease = Lease.objects.get(id=lease_id)
+            lease = Lease.objects.get(
+                id=attrs["lease_id"],
+                unit__building__portfolio__owner=request.user,
+            )
         except Lease.DoesNotExist:
-            raise serializers.ValidationError("Lease does not exist.")
+            raise serializers.ValidationError("Lease not found or not owned by you.")
 
-        if lease.unit.building.portfolio.owner != request.user:
-            raise serializers.ValidationError(
-                "You are not the owner of this lease."
-            )
+        if LeaseTenant.objects.filter(
+            lease=lease, tenant__email=attrs["email"]
+        ).exists():
+            raise serializers.ValidationError("Tenant already linked to this lease.")
 
-        already_tenant = LeaseTenant.objects.filter(
-            lease=lease,
-            tenant__email=email,
-        ).exists()
-        if already_tenant:
-            raise serializers.ValidationError(
-                "This email is already a tenant on this lease."
-            )
-
-        already_invited = TenantInvite.objects.filter(
-            email=email,
-            lease=lease,
-            is_accepted=False,
-        ).exists()
-        if already_invited:
-            raise serializers.ValidationError(
-                "An active invite already exists for this email."
-            )
+        if TenantInvite.objects.filter(
+            lease=lease, email=attrs["email"], is_accepted=False,
+            expires_at__gt=timezone.now()
+        ).exists():
+            raise serializers.ValidationError("An active invite already exists for this email.")
 
         attrs["lease"] = lease
         return attrs
@@ -90,7 +78,7 @@ class InviteTenantSerializer(serializers.Serializer):
 
 class AcceptInviteSerializer(serializers.Serializer):
     token = serializers.UUIDField()
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, validators=[validate_password])
 
     def validate(self, attrs):
         try:
@@ -103,8 +91,6 @@ class AcceptInviteSerializer(serializers.Serializer):
 
         if invite.expires_at < timezone.now():
             raise serializers.ValidationError("Invite has expired.")
-
-        validate_password(attrs["password"])
 
         attrs["invite"] = invite
         return attrs
