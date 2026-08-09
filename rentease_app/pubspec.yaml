@@ -39,6 +39,7 @@ dependencies:
   go_router:
   flutter_riverpod:
   image_picker:
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   flutter_test:

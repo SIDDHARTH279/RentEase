@@ -1,4 +1,7 @@
 from datetime import date
+from dateutil.relativedelta import relativedelta
+
+from django.db.models import Sum
 
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView, RetrieveAPIView
@@ -125,3 +128,71 @@ class InitiatePaymentView(APIView):
         update_invoice_status(rent_share.invoice)
 
         return Response(PaymentSerializer(payment).data, status=status.HTTP_201_CREATED)
+
+
+# ─── Analytics ────────────────────────────────────────────────────────────────
+
+class OwnerAnalyticsView(APIView):
+    permission_classes = [IsOwner]
+
+    def get(self, request):
+        from issues.models import Issue
+
+        owner = request.user
+        today = date.today()
+
+        active_leases = Lease.objects.filter(
+            unit__building__portfolio__owner=owner,
+            status=Lease.LeaseStatus.ACTIVE,
+        )
+
+        total_collected = Payment.objects.filter(
+            rent_share__invoice__lease__unit__building__portfolio__owner=owner,
+            status=Payment.PaymentStatus.CAPTURED,
+        ).aggregate(total=Sum("amount"))["total"] or 0
+
+        total_pending = RentShare.objects.filter(
+            invoice__lease__unit__building__portfolio__owner=owner,
+            status=RentShare.ShareStatus.PENDING,
+        ).aggregate(total=Sum("amount"))["total"] or 0
+
+        total_overdue = RentShare.objects.filter(
+            invoice__lease__unit__building__portfolio__owner=owner,
+            status=RentShare.ShareStatus.OVERDUE,
+        ).aggregate(total=Sum("amount"))["total"] or 0
+
+        issues = Issue.objects.filter(unit__building__portfolio__owner=owner)
+
+        monthly_trend = []
+        for i in range(5, -1, -1):
+            month_start = (today - relativedelta(months=i)).replace(day=1)
+            month_end = (month_start + relativedelta(months=1)) - relativedelta(days=1)
+            collected = Payment.objects.filter(
+                rent_share__invoice__lease__unit__building__portfolio__owner=owner,
+                status=Payment.PaymentStatus.CAPTURED,
+                paid_at__date__gte=month_start,
+                paid_at__date__lte=month_end,
+            ).aggregate(total=Sum("amount"))["total"] or 0
+
+            monthly_trend.append({
+                "month": month_start.strftime("%b %Y"),
+                "collected": float(collected),
+            })
+
+        return Response({
+            "summary": {
+                "total_collected": float(total_collected),
+                "total_pending": float(total_pending),
+                "total_overdue": float(total_overdue),
+                "active_leases": active_leases.count(),
+                "total_issues": issues.count(),
+                "open_issues": issues.filter(status="open").count(),
+            },
+            "monthly_trend": monthly_trend,
+            "issue_breakdown": {
+                "open": issues.filter(status="open").count(),
+                "in_progress": issues.filter(status="in_progress").count(),
+                "resolved": issues.filter(status="resolved").count(),
+                "closed": issues.filter(status="closed").count(),
+            },
+        })

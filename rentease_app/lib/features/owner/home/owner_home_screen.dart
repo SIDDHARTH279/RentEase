@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
+import '../analytics/owner_analytics_screen.dart';
 import '../billing/owner_leases_screen.dart';
 import '../issues/owner_issues_screen.dart';
 import '../properties/buildings_screen.dart';
@@ -95,40 +96,42 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         children: const [
           _HomeTab(),
           BuildingsScreen(),
-          const OwnerLeasesScreen(),
-          const OwnerIssuesScreen(),
+          OwnerLeasesScreen(),
+          OwnerAnalyticsScreen(),
+          OwnerIssuesScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onNavTap,
         backgroundColor: Colors.white,
-        indicatorColor: const Color(0xFF1A3C6E).withOpacity(0.12),
+        indicatorColor: Color(0x1F1A3C6E),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard_rounded,
-                color: Color(0xFF1A3C6E)),
+            selectedIcon: Icon(Icons.dashboard_rounded, color: Color(0xFF1A3C6E)),
             label: 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.apartment_outlined),
-            selectedIcon: Icon(Icons.apartment_rounded,
-                color: Color(0xFF1A3C6E)),
+            selectedIcon: Icon(Icons.apartment_rounded, color: Color(0xFF1A3C6E)),
             label: 'Properties',
           ),
           NavigationDestination(
             icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long_rounded,
-                color: Color(0xFF1A3C6E)),
+            selectedIcon: Icon(Icons.receipt_long_rounded, color: Color(0xFF1A3C6E)),
             label: 'Payments',
           ),
           NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),
-            selectedIcon: Icon(Icons.bar_chart_rounded,
-                color: Color(0xFF1A3C6E)),
+            selectedIcon: Icon(Icons.bar_chart_rounded, color: Color(0xFF1A3C6E)),
             label: 'Analytics',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.build_outlined),
+            selectedIcon: Icon(Icons.build_rounded, color: Color(0xFF1A3C6E)),
+            label: 'Issues',
           ),
         ],
       ),
