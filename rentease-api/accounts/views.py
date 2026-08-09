@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
@@ -8,7 +8,7 @@ from django.core.mail import send_mail
 
 from accounts.permissions import IsOwner
 from properties.models import LeaseTenant
-from .models import TenantInvite
+from .models import TenantInvite, FCMToken
 from .serializers import (
     RegisterSerializer,
     LoginSerializer,
@@ -183,3 +183,17 @@ class AcceptInviteView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class SaveFCMTokenView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        token = request.data.get("token", "").strip()
+        if not token:
+            return Response({"detail": "Token is required."}, status=status.HTTP_400_BAD_REQUEST)
+        FCMToken.objects.update_or_create(
+            user=request.user,
+            defaults={"token": token},
+        )
+        return Response({"detail": "Token saved."}, status=status.HTTP_200_OK)

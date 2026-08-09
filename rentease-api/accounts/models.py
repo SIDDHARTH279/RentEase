@@ -64,6 +64,21 @@ class User(AbstractUser):
         return self.email
 
 
+class FCMToken(models.Model):
+    """Stores the Firebase Cloud Messaging device token for each user."""
+    from django.conf import settings as django_settings
+    user = models.OneToOneField(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name='fcm_token',
+    )
+    token = models.TextField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"FCMToken({self.user.email})"
+
+
 def invite_expiry():
     return timezone.now() + timedelta(days=7)
 

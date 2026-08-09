@@ -165,3 +165,31 @@ CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/
 CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
 CELERY_TIMEZONE = 'Asia/Kolkata'
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    # Every day at 9:00 AM IST — generate invoices for all active leases
+    'generate-monthly-invoices': {
+        'task': 'billing.tasks.generate_monthly_invoices',
+        'schedule': crontab(hour=9, minute=0),
+    },
+    # Every day at midnight IST — mark pending invoices overdue
+    'mark-overdue-invoices': {
+        'task': 'billing.tasks.mark_overdue_invoices',
+        'schedule': crontab(hour=0, minute=0),
+    },
+}
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler'},
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}

@@ -58,6 +58,18 @@ def generate_invoice_for_lease(lease: Lease, reference_date: date = None):
             },
         )
 
+        # Notify tenant
+        try:
+            from accounts.notifications import send_notification
+            send_notification(
+                user=lease_tenant.tenant,
+                title="Rent Due",
+                body=f"Your rent of \u20b9{share_amount} is due on {invoice.due_date}.",
+                data={"type": "invoice", "invoice_id": str(invoice.id)},
+            )
+        except Exception:
+            pass
+
     return invoice, True
 
 

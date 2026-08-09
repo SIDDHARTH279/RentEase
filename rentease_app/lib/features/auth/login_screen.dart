@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../core/notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -61,6 +62,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       final role = response.data['user']['role'];
+      // Register FCM token now that JWT is stored
+      registerFCMTokenAfterLogin();
       if (role == 'owner') {
         context.go('/owner/home');
       } else {
@@ -78,7 +81,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final size = MediaQuery.of(context).size;
 
     return Scaffold(
