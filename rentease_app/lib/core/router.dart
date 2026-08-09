@@ -1,35 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
+
 import '../features/auth/login_screen.dart';
 import '../features/owner/home/owner_home_screen.dart';
+import '../features/tenant/home/tenant_home_screen.dart';
 import 'api_client.dart';
 
-
-final _storage = FlutterSecureStorage();
+final _storage = const FlutterSecureStorage();
 
 final appRouter = GoRouter(
   initialLocation: '/login',
-  redirect: (BuildContext context, GoRouterState state) async{
+  redirect: (BuildContext context, GoRouterState state) async {
     final token = await _storage.read(key: accessTokenKey);
-    final isGoingToLogin = state.matchedLocation == '/login';
+    final role = await _storage.read(key: 'user_role');
+    final location = state.matchedLocation;
 
-    if(token == null && !isGoingToLogin) return '/login';
-    if(token != null && isGoingToLogin) return '/home';
+    // no token → go to login
+    if (token == null) {
+      return location == '/login' ? null : '/login';
+    }
+
+    // has token + trying to go to login → redirect by role
+    if (location == '/login') {
+      return role == 'tenant' ? '/tenant/home' : '/owner/home';
+    }
+
     return null;
   },
   routes: [
     GoRoute(
       path: '/login',
-      name: '/login',
+      name: 'login',
       builder: (context, state) => const LoginScreen(),
     ),
-
     GoRoute(
-      path: '/home',
-      name: 'home',
-      builder: (context, state) => OwnerHomeScreen(),
+      path: '/owner/home',
+      name: 'owner-home',
+      builder: (context, state) => const OwnerHomeScreen(),
     ),
-
+    GoRoute(
+      path: '/tenant/home',
+      name: 'tenant-home',
+      builder: (context, state) => const TenantHomeScreen(),
+    ),
   ],
 );

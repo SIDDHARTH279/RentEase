@@ -54,9 +54,19 @@ class _LoginScreenState extends State<LoginScreen> {
         key: refreshTokenKey,
         value: response.data['refresh'],
       );
+      await _storage.write(
+        key: 'user_role',
+        value: response.data['user']['role'],
+      );
 
       if (!mounted) return;
-      context.go('/home');
+      final role = response.data['user']['role'];
+
+      if (role == 'owner') {
+        context.go('/owner/home');
+      } else {
+        context.go('/tenant/home');
+      }
     } on DioException catch (err) {
       setState(() {
         _errorMessage = err.response?.data['error'] ??
