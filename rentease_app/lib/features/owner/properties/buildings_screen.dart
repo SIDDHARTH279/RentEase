@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
 import 'add_building_screen.dart';
+import 'building_screen.dart';
 
 class BuildingsScreen extends StatefulWidget {
   const BuildingsScreen({super.key});
@@ -156,7 +157,12 @@ class _BuildingsScreenState extends State<BuildingsScreen> {
           Icons.chevron_right_rounded,
           color: Color(0xFF1A3C6E),
         ),
-        onTap: () {},
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BuildingScreen(building: building),
+          ),
+        ),
       ),
     );
   }

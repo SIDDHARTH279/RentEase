@@ -295,7 +295,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
             width: double.infinity,
             height: 48,
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: () => context.push('/tenant/billing'),
               icon: const Icon(Icons.payment_rounded, size: 18),
               label: const Text(
                 'Pay Rent',
@@ -440,7 +440,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
                 icon: Icons.receipt_long_outlined,
                 label: 'Payment History',
                 color: const Color(0xFF388E3C),
-                onTap: () {},
+                onTap: () => context.push('/tenant/billing'),
               ),
             ),
             const SizedBox(width: 12),

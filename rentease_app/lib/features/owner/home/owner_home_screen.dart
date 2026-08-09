@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
+import '../billing/owner_leases_screen.dart';
 import '../properties/buildings_screen.dart';
 
 class OwnerHomeScreen extends StatefulWidget {
@@ -93,7 +94,7 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
         children: const [
           _HomeTab(),
           BuildingsScreen(),
-          _PlaceholderTab(icon: Icons.receipt_long_rounded, label: 'Payments'),
+          OwnerLeasesScreen(),
           _PlaceholderTab(icon: Icons.bar_chart_rounded, label: 'Analytics'),
         ],
       ),

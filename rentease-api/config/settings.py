@@ -23,6 +23,8 @@ ALLOWED_HOSTS = ["127.0.0.1", "localhost", "*"]
 INSTALLED_APPS = [
     'accounts',
     "properties",
+    "billing",
+    "django_celery_beat",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -151,3 +153,8 @@ SIMPLE_JWT = {
 }
 
 AUTH_USER_MODEL = 'accounts.User'
+
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default='redis://localhost:6379/0')
+CELERY_TIMEZONE = 'Asia/Kolkata'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'

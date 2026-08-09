@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/login_screen.dart';
 import '../features/owner/home/owner_home_screen.dart';
+import '../features/owner/billing/owner_billing_screen.dart';
 import '../features/tenant/home/tenant_home_screen.dart';
+import '../features/tenant/billing/tenant_billing_screen.dart';
 import 'api_client.dart';
 
 final _storage = const FlutterSecureStorage();
@@ -43,6 +45,22 @@ final appRouter = GoRouter(
       path: '/tenant/home',
       name: 'tenant-home',
       builder: (context, state) => const TenantHomeScreen(),
+    ),
+    GoRoute(
+      path: '/tenant/billing',
+      name: 'tenant-billing',
+      builder: (context, state) => const TenantBillingScreen(),
+    ),
+    GoRoute(
+      path: '/owner/billing',
+      name: 'owner-billing',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>;
+        return OwnerBillingScreen(
+          leaseId: extra['leaseId'] as int,
+          unitNumber: extra['unitNumber'] as String,
+        );
+      },
     ),
   ],
 );

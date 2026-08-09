@@ -34,11 +34,16 @@ class UnitSerializer(serializers.ModelSerializer):
 
 
 class LeaseSerializer(serializers.ModelSerializer):
+    unit_number = serializers.CharField(source="unit.unit_number", read_only=True)
+    building_name = serializers.CharField(source="unit.building.name", read_only=True)
+
     class Meta:
         model = Lease
         fields = (
             "id",
             "unit",
+            "unit_number",
+            "building_name",
             "monthly_rent",
             "due_day",
             "start_date",
@@ -46,7 +51,7 @@ class LeaseSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
         )
-        read_only_fields = ("id", "created_at")
+        read_only_fields = ("id", "unit_number", "building_name", "created_at")
 
 
 class LeaseTenantSerializer(serializers.ModelSerializer):
