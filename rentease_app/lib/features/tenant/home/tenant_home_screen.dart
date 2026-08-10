@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
@@ -13,15 +14,36 @@ class TenantHomeScreen extends StatefulWidget {
 }
 
 class _TenantHomeScreenState extends State<TenantHomeScreen> {
+  final _storage = const FlutterSecureStorage();
   Map<String, dynamic>? _lease;
   Map<String, dynamic>? _unit;
   bool _isLoading = true;
   String? _error;
+  String _displayName = 'Tenant';
+  String _phone = '';
 
   @override
   void initState() {
     super.initState();
+    _loadProfile();
     _loadData();
+  }
+
+  Future<void> _loadProfile() async {
+    final first = await _storage.read(key: 'user_first_name') ?? '';
+    final last = await _storage.read(key: 'user_last_name') ?? '';
+    final phone = await _storage.read(key: 'user_phone') ?? '';
+    final name = '$first $last'.trim();
+    if (!mounted) return;
+    setState(() {
+      _displayName = name.isEmpty ? 'Tenant' : name;
+      _phone = phone;
+    });
+  }
+
+  Future<void> _openProfile() async {
+    await context.push('/profile');
+    await _loadProfile();
   }
 
   Future<void> _loadData() async {
@@ -87,9 +109,32 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
               child: Icon(Icons.person, color: Colors.white, size: 18),
             ),
             onSelected: (value) {
+              if (value == 'profile') _openProfile();
               if (value == 'logout') logout(context);
             },
             itemBuilder: (_) => [
+              PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    const Icon(Icons.person_outline, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_displayName,
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
+                          if (_phone.isNotEmpty)
+                            Text(_phone,
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey.shade600)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'logout',
                 child: Row(
@@ -112,7 +157,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
           : _error != null
               ? _buildError()
               : RefreshIndicator(
-                  onRefresh: _loadData,
+                  onRefresh: () async {
+                    await _loadProfile();
+                    await _loadData();
+                  },
                   color: const Color(0xFF1A3C6E),
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -177,9 +225,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Hello, Tenant 👋',
-            style: TextStyle(
+          Text(
+            'Hello, $_displayName 👋',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -187,7 +235,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Unit ${_unit?['unit_number'] ?? '—'}',
+            _phone.isNotEmpty
+                ? '$_phone · Unit ${_unit?['unit_number'] ?? '—'}'
+                : 'Unit ${_unit?['unit_number'] ?? '—'}',
             style: TextStyle(
               color: Colors.white.withOpacity(0.85),
               fontSize: 13,

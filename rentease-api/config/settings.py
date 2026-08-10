@@ -111,6 +111,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
+PUBLIC_BASE_URL = config('PUBLIC_BASE_URL', default='http://127.0.0.1:8000')
 
 
 # Internationalization
@@ -140,7 +141,13 @@ STATIC_URL = "static/"
 #     },
 # }
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.gmail.com"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+DEFAULT_FROM_EMAIL = f"RentEase <{config('EMAIL_HOST_USER', default='noreply@rentease.com')}>"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

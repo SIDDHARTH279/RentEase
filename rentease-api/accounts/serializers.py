@@ -10,10 +10,20 @@ class RegisterSerializer(serializers.ModelSerializer):
         required=True,
         validators=[validate_password],
     )
+    first_name = serializers.CharField(required=True, max_length=150)
+    last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=10)
 
     class Meta:
         model = User
-        fields = ("email", "password", "first_name", "last_name")
+        fields = ("email", "password", "first_name", "last_name", "phone")
+
+    def validate_phone(self, value):
+        value = (value or "").strip()
+        digits = "".join(ch for ch in value if ch.isdigit())
+        if digits and len(digits) != 10:
+            raise serializers.ValidationError("Phone number must be exactly 10 digits.")
+        return digits
 
     def create(self, validated_data):
         user = User.objects.create_user(
@@ -21,9 +31,33 @@ class RegisterSerializer(serializers.ModelSerializer):
             password=validated_data["password"],
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
+            phone=validated_data.get("phone", ""),
             role=User.Role.OWNER,
         )
         return user
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "phone",
+            "role",
+        )
+        read_only_fields = ("id", "email", "role")
+
+    def validate_phone(self, value):
+        value = (value or "").strip()
+        digits = "".join(ch for ch in value if ch.isdigit())
+        if value and not digits:
+            raise serializers.ValidationError("Enter a valid phone number.")
+        if digits and len(digits) != 10:
+            raise serializers.ValidationError("Phone number must be exactly 10 digits.")
+        return digits
 
 
 class LoginSerializer(serializers.Serializer):
@@ -79,6 +113,16 @@ class InviteTenantSerializer(serializers.Serializer):
 class AcceptInviteSerializer(serializers.Serializer):
     token = serializers.UUIDField()
     password = serializers.CharField(write_only=True, validators=[validate_password])
+    first_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    last_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    phone = serializers.CharField(required=False, allow_blank=True, max_length=10)
+
+    def validate_phone(self, value):
+        value = (value or "").strip()
+        digits = "".join(ch for ch in value if ch.isdigit())
+        if digits and len(digits) != 10:
+            raise serializers.ValidationError("Phone number must be exactly 10 digits.")
+        return digits
 
     def validate(self, attrs):
         try:

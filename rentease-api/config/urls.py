@@ -4,8 +4,11 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
 
+from accounts.invite_landing import InviteLandingView
+
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("invite/<uuid:token>/", InviteLandingView.as_view(), name="invite-landing"),
     path("api/v1/auth/", include("accounts.urls")),
     path("api/v1/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/v1/properties/", include("properties.urls")),

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
+import '../features/auth/accept_invite_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/owner/home/owner_home_screen.dart';
 import '../features/owner/billing/owner_billing_screen.dart';
+import '../features/profile/edit_profile_screen.dart';
 import '../features/tenant/home/tenant_home_screen.dart';
 import '../features/tenant/billing/tenant_billing_screen.dart';
 import '../features/tenant/issues/tenant_issues_screen.dart';
@@ -12,20 +14,28 @@ import 'api_client.dart';
 
 final _storage = const FlutterSecureStorage();
 
-final appRouter = GoRouter(
-  initialLocation: '/login',
+// Called from main.dart so deep link initial route can be passed in
+GoRouter buildRouter({String? initialRoute}) => GoRouter(
+  initialLocation: initialRoute ?? '/login',
   redirect: (BuildContext context, GoRouterState state) async {
     final token = await _storage.read(key: accessTokenKey);
     final role = await _storage.read(key: 'user_role');
     final location = state.matchedLocation;
 
-    // no token → go to login
+    // no token → go to login (but allow accept-invite without token)
     if (token == null) {
-      return location == '/login' ? null : '/login';
+      if (location == '/login' ||
+          location.startsWith('/accept-invite') ||
+          location == '/profile') {
+        return location == '/profile' ? '/login' : null;
+      }
+      return '/login';
     }
 
-    // has token + trying to go to login → redirect by role
+    // already logged in → skip login (unless joining via invite link)
     if (location == '/login') {
+      final hasInvite = state.uri.queryParameters['invite_token'] != null;
+      if (hasInvite) return null;
       return role == 'tenant' ? '/tenant/home' : '/owner/home';
     }
 
@@ -35,7 +45,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/login',
       name: 'login',
-      builder: (context, state) => const LoginScreen(),
+      builder: (context, state) {
+        final inviteToken = state.uri.queryParameters['invite_token'];
+        return LoginScreen(inviteToken: inviteToken);
+      },
     ),
     GoRoute(
       path: '/owner/home',
@@ -67,6 +80,23 @@ final appRouter = GoRouter(
       path: '/tenant/issues',
       name: 'tenant-issues',
       builder: (context, state) => const TenantIssuesScreen(),
+    ),
+    GoRoute(
+      path: '/accept-invite',
+      name: 'accept-invite',
+      builder: (context, state) {
+        final token = state.uri.queryParameters['token'];
+        return AcceptInviteScreen(prefillToken: token);
+      },
+    ),
+    GoRoute(
+      path: '/profile',
+      name: 'profile',
+      builder: (context, state) {
+        final requireComplete =
+            state.uri.queryParameters['complete'] == '1';
+        return EditProfileScreen(requireComplete: requireComplete);
+      },
     ),
   ],
 );

@@ -13,7 +13,7 @@ class StrongPasswordValidator:
                 "Password must contain at least one number.",
                 code='password_no_number',
             )
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/`~;\'']', password):
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>_\-+=\[\]\\\/`~;]', password):
             raise ValidationError(
                 "Password must contain at least one special character (!@#$%^&* etc.).",
                 code='password_no_special',

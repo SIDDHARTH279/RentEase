@@ -53,7 +53,7 @@ class User(AbstractUser):
         default= Role.TENANT
     )
 
-    phone = models.CharField(max_length=15, blank=True)
+    phone = models.CharField(max_length=10, blank=True)
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = []

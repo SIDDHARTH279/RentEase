@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/auth_utils.dart';
 import '../analytics/owner_analytics_screen.dart';
@@ -14,10 +16,36 @@ class OwnerHomeScreen extends StatefulWidget {
 }
 
 class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
+  final _storage = const FlutterSecureStorage();
   int _selectedIndex = 0;
+  String _displayName = 'Owner';
+  String _phone = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final first = await _storage.read(key: 'user_first_name') ?? '';
+    final last = await _storage.read(key: 'user_last_name') ?? '';
+    final phone = await _storage.read(key: 'user_phone') ?? '';
+    final name = '$first $last'.trim();
+    if (!mounted) return;
+    setState(() {
+      _displayName = name.isEmpty ? 'Owner' : name;
+      _phone = phone;
+    });
+  }
 
   void _onNavTap(int index) {
     setState(() => _selectedIndex = index);
+  }
+
+  Future<void> _openProfile() async {
+    await context.push('/profile');
+    await _loadProfile();
   }
 
   @override
@@ -55,16 +83,29 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
               child: Icon(Icons.person, color: Colors.white, size: 18),
             ),
             onSelected: (value) {
+              if (value == 'profile') _openProfile();
               if (value == 'logout') logout(context);
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'profile',
                 child: Row(
                   children: [
-                    Icon(Icons.person_outline, size: 18),
-                    SizedBox(width: 8),
-                    Text('Profile'),
+                    const Icon(Icons.person_outline, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_displayName,
+                              style: const TextStyle(fontWeight: FontWeight.w600)),
+                          if (_phone.isNotEmpty)
+                            Text(_phone,
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey.shade600)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -85,12 +126,12 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
       ),
       body: IndexedStack(
         index: _selectedIndex,
-        children: const [
-          _HomeTab(),
-          BuildingsScreen(),
-          OwnerLeasesScreen(),
-          OwnerAnalyticsScreen(),
-          OwnerIssuesScreen(),
+        children: [
+          _HomeTab(displayName: _displayName, phone: _phone),
+          const BuildingsScreen(),
+          const OwnerLeasesScreen(),
+          const OwnerAnalyticsScreen(),
+          const OwnerIssuesScreen(),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -134,7 +175,10 @@ class _OwnerHomeScreenState extends State<OwnerHomeScreen> {
 // ─── Home Tab ─────────────────────────────────────────────────────────────────
 
 class _HomeTab extends StatelessWidget {
-  const _HomeTab();
+  final String displayName;
+  final String phone;
+
+  const _HomeTab({required this.displayName, required this.phone});
 
   @override
   Widget build(BuildContext context) {
@@ -158,9 +202,9 @@ class _HomeTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Good morning, Owner 👋',
-                  style: TextStyle(
+                Text(
+                  'Hello, $displayName 👋',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -168,7 +212,9 @@ class _HomeTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Here\'s your portfolio overview',
+                  phone.isNotEmpty
+                      ? phone
+                      : 'Here\'s your portfolio overview',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
                     fontSize: 13,

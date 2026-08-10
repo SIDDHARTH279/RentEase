@@ -32,9 +32,10 @@ def generate_monthly_invoices():
 @shared_task
 def mark_overdue_invoices():
     """
-    Daily task: mark pending invoices/shares as overdue if past due date.
+    Daily task: mark pending invoices/shares as overdue and email tenants.
     """
     from .models import RentInvoice, RentShare
+    from accounts.emails import send_overdue_reminder_email
 
     today = date.today()
 
@@ -47,7 +48,24 @@ def mark_overdue_invoices():
     overdue_shares = RentShare.objects.filter(
         status=RentShare.ShareStatus.PENDING,
         invoice__due_date__lt=today,
+    ).select_related(
+        'lease_tenant__tenant',
+        'invoice__lease__unit',
     )
-    share_count = overdue_shares.update(status=RentShare.ShareStatus.OVERDUE)
+
+    share_count = 0
+    for share in overdue_shares:
+        share.status = RentShare.ShareStatus.OVERDUE
+        share.save(update_fields=['status'])
+        try:
+            send_overdue_reminder_email(
+                email=share.lease_tenant.tenant.email,
+                amount=float(share.amount),
+                due_date=str(share.invoice.due_date),
+                unit_number=share.invoice.lease.unit.unit_number,
+            )
+        except Exception:
+            pass
+        share_count += 1
 
     return f"Overdue: {invoice_count} invoices, {share_count} shares."
