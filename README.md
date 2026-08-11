@@ -190,14 +190,6 @@ flutter build appbundle --dart-define=API_BASE_URL=https://YOUR_API_HOST
 
 ---
 
-## Docs
-
-- [PRODUCTION.md](PRODUCTION.md) — production env, Docker, HTTPS  
-- [RELEASE.md](RELEASE.md) — Play Store / App Store checklist  
-- [ORACLE_DEPLOY.md](ORACLE_DEPLOY.md) — optional Always Free VM notes  
-
----
-
 ## CI
 
 GitHub Actions runs:
