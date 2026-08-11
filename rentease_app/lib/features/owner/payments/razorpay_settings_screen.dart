@@ -237,6 +237,10 @@ class _RazorpaySettingsScreenState extends State<RazorpaySettingsScreen>
         ),
         bottom: TabBar(
           controller: _tabs,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
+          indicatorWeight: 2.5,
           tabs: const [
             Tab(text: 'Bank / QR'),
             Tab(text: 'Razorpay'),
