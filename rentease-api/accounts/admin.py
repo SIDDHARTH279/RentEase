@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import User, TenantInvite
+from .models import User, TenantInvite, AppNotification, FCMToken
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
@@ -25,3 +25,16 @@ class UserAdmin(BaseUserAdmin):
 
 
 admin.site.register(TenantInvite)
+
+
+@admin.register(AppNotification)
+class AppNotificationAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "type", "title", "is_read", "created_at")
+    list_filter = ("type", "is_read")
+    search_fields = ("title", "body", "user__email")
+
+
+@admin.register(FCMToken)
+class FCMTokenAdmin(admin.ModelAdmin):
+    list_display = ("user", "updated_at")
+    search_fields = ("user__email",)

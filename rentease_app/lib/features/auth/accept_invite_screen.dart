@@ -44,7 +44,10 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
 
   Future<void> _acceptInvite() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _isLoading = true; _errorMessage = null; });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
       final response = await apiClient.post(
@@ -93,12 +96,12 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = scheme.onSurfaceVariant;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
-        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.go('/login'),
@@ -116,24 +119,36 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 8),
-
-              // Info box
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
+                  color: isDark
+                      ? const Color(0xFF1A2A3A)
+                      : const Color(0xFFE3F2FD),
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: isDark
+                        ? scheme.outlineVariant
+                        : const Color(0xFF90CAF9),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded,
-                        color: Color(0xFF1565C0), size: 22),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      color: isDark
+                          ? const Color(0xFF90CAF9)
+                          : const Color(0xFF1565C0),
+                      size: 22,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Enter the invite token from your email and set a new password.',
                         style: TextStyle(
-                          color: Colors.blue.shade800,
+                          color: isDark
+                              ? const Color(0xFFBBDEFB)
+                              : Colors.blue.shade800,
                           fontSize: 13,
                         ),
                       ),
@@ -141,15 +156,12 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 28),
-
-              // Token field
-              const Text(
+              Text(
                 'Invite Token',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A3C6E),
+                  color: scheme.primary,
                   fontSize: 14,
                 ),
               ),
@@ -157,21 +169,19 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
               TextFormField(
                 controller: _tokenController,
                 decoration: _inputDecoration(
+                  context,
                   hint: 'Paste your invite token here',
                   icon: Icons.vpn_key_outlined,
                 ),
                 validator: (v) =>
                     v == null || v.trim().isEmpty ? 'Token is required' : null,
               ),
-
               const SizedBox(height: 20),
-
-              // Password field
-              const Text(
+              Text(
                 'New Password',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A3C6E),
+                  color: scheme.primary,
                   fontSize: 14,
                 ),
               ),
@@ -180,6 +190,7 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
                 controller: _passwordController,
                 obscureText: _obscurePassword,
                 decoration: _inputDecoration(
+                  context,
                   hint: 'Min 8 chars, 1 number, 1 special char',
                   icon: Icons.lock_outline_rounded,
                 ).copyWith(
@@ -188,7 +199,7 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
                       _obscurePassword
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-                      color: Colors.grey.shade400,
+                      color: muted,
                     ),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
@@ -204,15 +215,12 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
                   return null;
                 },
               ),
-
               const SizedBox(height: 20),
-
-              // Confirm password
-              const Text(
+              Text(
                 'Confirm Password',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A3C6E),
+                  color: scheme.primary,
                   fontSize: 14,
                 ),
               ),
@@ -221,6 +229,7 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
                 controller: _confirmController,
                 obscureText: _obscureConfirm,
                 decoration: _inputDecoration(
+                  context,
                   hint: 'Re-enter your password',
                   icon: Icons.lock_outline_rounded,
                 ).copyWith(
@@ -229,77 +238,65 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
                       _obscureConfirm
                           ? Icons.visibility_off_outlined
                           : Icons.visibility_outlined,
-                      color: Colors.grey.shade400,
+                      color: muted,
                     ),
                     onPressed: () =>
                         setState(() => _obscureConfirm = !_obscureConfirm),
                   ),
                 ),
                 validator: (v) {
-                  if (v == null || v.isEmpty) return 'Please confirm your password';
-                  if (v != _passwordController.text) return 'Passwords do not match';
+                  if (v == null || v.isEmpty) {
+                    return 'Please confirm your password';
+                  }
+                  if (v != _passwordController.text) {
+                    return 'Passwords do not match';
+                  }
                   return null;
                 },
               ),
-
-              // Error message
               if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEBEE),
+                    color: scheme.errorContainer,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline,
-                          color: Color(0xFFD32F2F), size: 18),
+                      Icon(Icons.error_outline,
+                          color: scheme.onErrorContainer, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
-                              color: Color(0xFFD32F2F), fontSize: 13),
+                          style: TextStyle(
+                            color: scheme.onErrorContainer,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
               ],
-
               const SizedBox(height: 32),
-
               SizedBox(
                 width: double.infinity,
                 height: 52,
-                child: ElevatedButton(
+                child: FilledButton(
                   onPressed: _isLoading ? null : _acceptInvite,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A3C6E),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
                   child: _isLoading
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 22,
                           width: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            color: Colors.white,
+                            color: scheme.onPrimary,
                           ),
                         )
-                      : const Text(
-                          'Accept Invite & Join',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      : const Text('Accept Invite & Join'),
                 ),
               ),
             ],
@@ -309,37 +306,42 @@ class _AcceptInviteScreenState extends State<AcceptInviteScreen> {
     );
   }
 
-  InputDecoration _inputDecoration({
+  InputDecoration _inputDecoration(
+    BuildContext context, {
     required String hint,
     required IconData icon,
   }) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(icon, color: const Color(0xFF2E6DA4), size: 20),
-      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+      prefixIcon: Icon(icon, color: scheme.primary, size: 20),
+      hintStyle: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: isDark
+          ? scheme.surfaceContainerHighest
+          : const Color(0xFFF5F7FA),
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF2E6DA4), width: 1.5),
+        borderSide: BorderSide(color: scheme.primary, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFD32F2F)),
+        borderSide: BorderSide(color: scheme.error),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFD32F2F), width: 1.5),
+        borderSide: BorderSide(color: scheme.error, width: 1.5),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/theme/app_surfaces.dart';
 import 'add_building_screen.dart';
 import 'building_screen.dart';
 
@@ -51,16 +52,15 @@ class _BuildingsScreenState extends State<BuildingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1A3C6E)),
+          ? Center(
+              child: CircularProgressIndicator(color: context.colors.primary),
             )
           : _error != null
               ? _buildError()
               : RefreshIndicator(
                   onRefresh: _loadBuildings,
-                  color: const Color(0xFF1A3C6E),
+                  color: context.colors.primary,
                   child: _buildings.isEmpty
                       ? _buildEmpty()
                       : ListView.builder(
@@ -73,8 +73,6 @@ class _BuildingsScreenState extends State<BuildingsScreen> {
                 ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _goToAddBuilding,
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text(
           'Add Building',
@@ -91,20 +89,11 @@ class _BuildingsScreenState extends State<BuildingsScreen> {
       'commercial': Icons.store_rounded,
     };
     final icon = typeIcons[building['type']] ?? Icons.apartment_rounded;
+    final accent = context.accentBlue();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: context.cardDecoration(),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
@@ -114,17 +103,17 @@ class _BuildingsScreenState extends State<BuildingsScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A3C6E).withOpacity(0.1),
+            color: context.brandText.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: const Color(0xFF1A3C6E), size: 24),
+          child: Icon(icon, color: context.brandText, size: 24),
         ),
         title: Text(
           building['name'] ?? '—',
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 15,
-            color: Color(0xFF1A3C6E),
+            color: context.brandText,
           ),
         ),
         subtitle: Column(
@@ -133,29 +122,29 @@ class _BuildingsScreenState extends State<BuildingsScreen> {
             const SizedBox(height: 4),
             Text(
               building['city'] ?? '—',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+              style: context.mutedBodyStyle,
             ),
             const SizedBox(height: 2),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFF2E6DA4).withOpacity(0.1),
+                color: accent.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
                 (building['type'] ?? '').toString().toUpperCase(),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF2E6DA4),
+                  color: accent,
                 ),
               ),
             ),
           ],
         ),
-        trailing: const Icon(
+        trailing: Icon(
           Icons.chevron_right_rounded,
-          color: Color(0xFF1A3C6E),
+          color: context.brandText,
         ),
         onTap: () => Navigator.push(
           context,
@@ -174,21 +163,25 @@ class _BuildingsScreenState extends State<BuildingsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.apartment_outlined, size: 72, color: Colors.grey.shade300),
+            Icon(
+              Icons.apartment_outlined,
+              size: 72,
+              color: context.colors.onSurfaceVariant.withValues(alpha: 0.4),
+            ),
             const SizedBox(height: 16),
             Text(
               'No buildings yet',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey.shade400,
+                color: context.colors.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               'Tap the button below to add\nyour first building.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+              style: context.mutedBodyStyle,
             ),
           ],
         ),
@@ -201,14 +194,17 @@ class _BuildingsScreenState extends State<BuildingsScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: context.colors.onSurfaceVariant,
+          ),
           const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: Colors.grey.shade500)),
+          Text(_error!, style: context.mutedBodyStyle),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadBuildings,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A3C6E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),

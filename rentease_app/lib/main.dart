@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:rentease_app/core/deep_links.dart';
 import 'package:rentease_app/core/router.dart';
+import 'package:rentease_app/core/theme/app_theme.dart';
+import 'package:rentease_app/core/theme/theme_controller.dart';
 import 'core/notification_service.dart';
 
 @pragma('vm:entry-point')
@@ -13,38 +16,12 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 }
 
-/// Converts app deep links into in-app routes.
-String? routeFromDeepLink(Uri uri) {
-  if (uri.scheme != 'rentease') return null;
-
-  // rentease://login?invite_token=xxx
-  if (uri.host == 'login') {
-    final invite = uri.queryParameters['invite_token'];
-    if (invite != null && invite.isNotEmpty) {
-      return '/login?invite_token=$invite';
-    }
-    return '/login';
-  }
-
-  // Legacy: rentease://accept-invite?token=xxx → login with invite
-  final isInviteHost = uri.host == 'accept-invite';
-  final isInvitePath =
-      uri.path == '/accept-invite' || uri.path.endsWith('accept-invite');
-  if (isInviteHost || isInvitePath) {
-    final token =
-        uri.queryParameters['token'] ?? uri.queryParameters['invite_token'];
-    if (token != null && token.isNotEmpty) {
-      return '/login?invite_token=$token';
-    }
-  }
-  return null;
-}
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
   await initNotifications();
+  await ThemeController.instance.load();
   await GoogleSignIn.instance.initialize(
     serverClientId:
         '295375781024-ssdrf9722c00q72moj89g5r9tdpug5ic.apps.googleusercontent.com',
@@ -57,20 +34,20 @@ void main() async {
 
   runApp(
     ProviderScope(
-      child: RentLedgerApp(initialRoute: initialRoute),
+      child: RentEaseApp(initialRoute: initialRoute),
     ),
   );
 }
 
-class RentLedgerApp extends StatefulWidget {
+class RentEaseApp extends StatefulWidget {
   final String? initialRoute;
-  const RentLedgerApp({super.key, this.initialRoute});
+  const RentEaseApp({super.key, this.initialRoute});
 
   @override
-  State<RentLedgerApp> createState() => _RentLedgerAppState();
+  State<RentEaseApp> createState() => _RentEaseAppState();
 }
 
-class _RentLedgerAppState extends State<RentLedgerApp> {
+class _RentEaseAppState extends State<RentEaseApp> {
   late final GoRouter _router;
 
   @override
@@ -88,17 +65,18 @@ class _RentLedgerAppState extends State<RentLedgerApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'RentEase',
-      debugShowCheckedModeBanner: false,
-      routerConfig: _router,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A3C6E),
-        ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-      ),
+    return ListenableBuilder(
+      listenable: ThemeController.instance,
+      builder: (context, _) {
+        return MaterialApp.router(
+          title: 'RentEase',
+          debugShowCheckedModeBanner: false,
+          routerConfig: _router,
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: ThemeController.instance.mode,
+        );
+      },
     );
   }
 }

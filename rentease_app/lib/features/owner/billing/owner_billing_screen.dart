@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/theme/app_surfaces.dart';
 
 class OwnerBillingScreen extends StatefulWidget {
   final int leaseId;
@@ -48,6 +49,101 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
     }
   }
 
+  Future<void> _confirmMarkPaid(Map<String, dynamic> share) async {
+    final name = share['tenant_name']?.toString().isNotEmpty == true
+        ? share['tenant_name'].toString()
+        : (share['tenant_email'] ?? 'tenant').toString();
+    final amount = share['amount']?.toString() ?? '';
+    String method = 'cash';
+    final notesController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              title: const Text('Mark rent as paid'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Record ₹$amount from $name as received.'),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    value: method,
+                    decoration: const InputDecoration(
+                      labelText: 'Payment method',
+                      border: OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                      DropdownMenuItem(value: 'upi', child: Text('UPI / QR')),
+                      DropdownMenuItem(
+                        value: 'bank_transfer',
+                        child: Text('Bank transfer'),
+                      ),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) setLocal(() => method = v);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Note (optional)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Mark paid'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    final notes = notesController.text.trim();
+    notesController.dispose();
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await apiClient.post(
+        '/api/v1/billing/shares/${share['id']}/mark-paid/',
+        data: {
+          'method': method,
+          if (notes.isNotEmpty) 'notes': notes,
+        },
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Marked as paid.'),
+          backgroundColor: Color(0xFF388E3C),
+        ),
+      );
+      await _loadInvoices();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final msg = e.response?.data?['detail'] ?? 'Could not mark as paid.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg.toString()), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Future<void> _generateInvoice() async {
     setState(() => _isGenerating = true);
     try {
@@ -82,12 +178,8 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
+            appBar: AppBar(
+                leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
@@ -114,13 +206,13 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1A3C6E)))
+          ? Center(
+              child: CircularProgressIndicator(color: context.colors.primary))
           : _error != null
               ? _buildError()
               : RefreshIndicator(
                   onRefresh: _loadInvoices,
-                  color: const Color(0xFF1A3C6E),
+                  color: context.colors.primary,
                   child: _invoices.isEmpty
                       ? _buildEmpty()
                       : ListView.separated(
@@ -144,33 +236,23 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
     Color statusColor;
     IconData statusIcon;
     if (isPaid) {
-      statusColor = const Color(0xFF388E3C);
+      statusColor = context.accentGreen();
       statusIcon = Icons.check_circle_rounded;
     } else if (isOverdue) {
-      statusColor = const Color(0xFFD32F2F);
+      statusColor = context.accentRed();
       statusIcon = Icons.warning_rounded;
     } else if (isCancelled) {
-      statusColor = Colors.grey;
+      statusColor = context.colors.onSurfaceVariant;
       statusIcon = Icons.cancel_rounded;
     } else {
-      statusColor = const Color(0xFFE65100);
+      statusColor = context.accentOrange();
       statusIcon = Icons.hourglass_empty_rounded;
     }
 
     final shares = invoice['shares'] as List<dynamic>? ?? [];
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 18),
       child: Column(
         children: [
           Padding(
@@ -183,10 +265,10 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
                   children: [
                     Text(
                       '${invoice['period_start']} → ${invoice['period_end']}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Color(0xFF1A3C6E),
+                        color: context.brandText,
                       ),
                     ),
                     Container(
@@ -238,7 +320,7 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
             ),
           ),
           if (shares.isNotEmpty) ...[
-            Divider(height: 1, color: Colors.grey.shade100),
+            Divider(height: 1, color: context.colors.outlineVariant),
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 12, 18, 14),
               child: Column(
@@ -246,19 +328,26 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
                 children: [
                   Text(
                     'Tenant Shares',
-                    style: TextStyle(
+                    style: context.mutedBodyStyle.copyWith(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade500,
                     ),
                   ),
                   const SizedBox(height: 8),
                   ...shares.map((share) {
-                    final shareStatus = share['status'] as String;
+                    final shareMap = Map<String, dynamic>.from(share as Map);
+                    final shareStatus = shareMap['status'] as String;
                     final shareIsPaid = shareStatus == 'paid';
+                    final name =
+                        shareMap['tenant_name']?.toString().isNotEmpty == true
+                            ? shareMap['tenant_name'].toString()
+                            : (shareMap['tenant_email'] ?? '—').toString();
+                    final pct = shareMap['rent_share_pct'];
+                    final method = shareMap['payment_method']?.toString() ?? '';
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.only(bottom: 10),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Icon(
                             shareIsPaid
@@ -266,27 +355,66 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
                                 : Icons.radio_button_unchecked_rounded,
                             size: 16,
                             color: shareIsPaid
-                                ? Colors.green.shade600
-                                : Colors.grey.shade400,
+                                ? context.accentGreen()
+                                : context.colors.onSurfaceVariant,
                           ),
                           const SizedBox(width: 8),
                           Expanded(
-                            child: Text(
-                              share['tenant_email'] ?? '—',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF1A3C6E),
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.brandText,
+                                  ),
+                                ),
+                                Text(
+                                  [
+                                    if (pct != null) '$pct% share',
+                                    shareStatus.toUpperCase(),
+                                    if (shareIsPaid && method.isNotEmpty)
+                                      method.replaceAll('_', ' '),
+                                  ].join(' · '),
+                                  style: context.mutedBodyStyle
+                                      .copyWith(fontSize: 11),
+                                ),
+                                if (!shareIsPaid) ...[
+                                  const SizedBox(height: 6),
+                                  TextButton.icon(
+                                    onPressed: () =>
+                                        _confirmMarkPaid(shareMap),
+                                    style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      foregroundColor: context.accentBlue(),
+                                    ),
+                                    icon: const Icon(Icons.payments_outlined,
+                                        size: 16),
+                                    label: const Text(
+                                      'Mark paid',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           Text(
-                            '₹${share['amount']}',
+                            '₹${shareMap['amount']}',
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                               color: shareIsPaid
-                                  ? Colors.green.shade700
-                                  : const Color(0xFF1A3C6E),
+                                  ? context.accentGreen()
+                                  : context.brandText,
                             ),
                           ),
                         ],
@@ -306,12 +434,12 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FA),
+        color: context.softFill,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: const Color(0xFF2E6DA4)),
+          Icon(icon, size: 16, color: context.accentBlue()),
           const SizedBox(width: 6),
           Expanded(
             child: Column(
@@ -319,16 +447,15 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A3C6E),
+                    color: context.brandText,
                   ),
                 ),
                 Text(
                   label,
-                  style: TextStyle(
-                      fontSize: 10, color: Colors.grey.shade500),
+                  style: context.mutedBodyStyle.copyWith(fontSize: 10),
                 ),
               ],
             ),
@@ -339,25 +466,25 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
   }
 
   Widget _buildEmpty() {
+    final muted = context.colors.onSurfaceVariant;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.receipt_long_outlined,
-              size: 64, color: Colors.grey.shade300),
+          Icon(Icons.receipt_long_outlined, size: 64, color: muted),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No invoices yet',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A3C6E),
+              color: context.colors.onSurface,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Tap + to generate this month\'s invoice',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 13, color: muted),
           ),
         ],
       ),
@@ -365,18 +492,18 @@ class _OwnerBillingScreenState extends State<OwnerBillingScreen> {
   }
 
   Widget _buildError() {
+    final muted = context.colors.onSurfaceVariant;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          Icon(Icons.error_outline, size: 48, color: muted),
           const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: Colors.grey.shade500)),
+          Text(_error!, style: TextStyle(color: muted)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadInvoices,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A3C6E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),

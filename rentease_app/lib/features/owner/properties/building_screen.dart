@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/theme/app_surfaces.dart';
+import 'add_unit_screen.dart';
 
 class BuildingScreen extends StatefulWidget {
   final Map<String, dynamic> building;
@@ -30,14 +32,12 @@ class _BuildingScreenState extends State<BuildingScreen> {
       _error = null;
     });
     try {
-      final res = await apiClient.get('/api/v1/properties/units/');
+      final res = await apiClient.get(
+        '/api/v1/properties/units/',
+        queryParameters: {'building_id': widget.building['id']},
+      );
       if (!mounted) return;
-      final all = res.data as List<dynamic>? ?? [];
-      setState(() {
-        _units = all
-            .where((u) => u['building'] == widget.building['id'])
-            .toList();
-      });
+      setState(() => _units = res.data as List<dynamic>? ?? []);
     } on DioException catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Could not load units.');
@@ -46,14 +46,23 @@ class _BuildingScreenState extends State<BuildingScreen> {
     }
   }
 
+  Future<void> _addUnit() async {
+    final added = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddUnitScreen(
+          buildingId: widget.building['id'] as int,
+          buildingName: widget.building['name']?.toString() ?? 'Building',
+        ),
+      ),
+    );
+    if (added == true) _loadUnits();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
-        elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
@@ -73,18 +82,23 @@ class _BuildingScreenState extends State<BuildingScreen> {
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _addUnit,
+        icon: const Icon(Icons.add),
+        label: const Text('Add Unit'),
+      ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1A3C6E)))
+          ? Center(
+              child: CircularProgressIndicator(color: context.colors.primary))
           : _error != null
               ? _buildError()
               : RefreshIndicator(
                   onRefresh: _loadUnits,
-                  color: const Color(0xFF1A3C6E),
+                  color: context.colors.primary,
                   child: _units.isEmpty
                       ? _buildEmpty()
                       : ListView.separated(
-                          padding: const EdgeInsets.all(20),
+                          padding: const EdgeInsets.fromLTRB(20, 20, 20, 88),
                           itemCount: _units.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 12),
@@ -96,19 +110,11 @@ class _BuildingScreenState extends State<BuildingScreen> {
 
   Widget _buildUnitCard(Map<String, dynamic> unit) {
     final isVacant = unit['is_vacant'] as bool? ?? true;
+    final vacantColor = context.accentOrange();
+    final occupiedColor = context.accentGreen();
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 18),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
@@ -123,12 +129,12 @@ class _BuildingScreenState extends State<BuildingScreen> {
                       width: 42,
                       height: 42,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A3C6E).withOpacity(0.1),
+                        color: context.brandText.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.door_front_door_outlined,
-                        color: Color(0xFF1A3C6E),
+                        color: context.brandText,
                         size: 22,
                       ),
                     ),
@@ -138,19 +144,16 @@ class _BuildingScreenState extends State<BuildingScreen> {
                       children: [
                         Text(
                           'Unit ${unit['unit_number'] ?? '—'}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
-                            color: Color(0xFF1A3C6E),
+                            color: context.brandText,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           'Floor ${unit['floor'] ?? '—'} • ${unit['bedrooms'] ?? '—'} BHK',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
-                          ),
+                          style: context.mutedBodyStyle.copyWith(fontSize: 12),
                         ),
                       ],
                     ),
@@ -160,9 +163,8 @@ class _BuildingScreenState extends State<BuildingScreen> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: isVacant
-                        ? Colors.orange.shade50
-                        : Colors.green.shade50,
+                    color: (isVacant ? vacantColor : occupiedColor)
+                        .withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -170,9 +172,7 @@ class _BuildingScreenState extends State<BuildingScreen> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: isVacant
-                          ? Colors.orange.shade700
-                          : Colors.green.shade700,
+                      color: isVacant ? vacantColor : occupiedColor,
                     ),
                   ),
                 ),
@@ -182,7 +182,7 @@ class _BuildingScreenState extends State<BuildingScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF5F7FA),
+                color: context.softFill,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -195,7 +195,10 @@ class _BuildingScreenState extends State<BuildingScreen> {
                     ),
                   ),
                   Container(
-                      width: 1, height: 32, color: Colors.grey.shade200),
+                    width: 1,
+                    height: 32,
+                    color: context.colors.outlineVariant,
+                  ),
                   Expanded(
                     child: _detail(
                       Icons.savings_outlined,
@@ -204,7 +207,10 @@ class _BuildingScreenState extends State<BuildingScreen> {
                     ),
                   ),
                   Container(
-                      width: 1, height: 32, color: Colors.grey.shade200),
+                    width: 1,
+                    height: 32,
+                    color: context.colors.outlineVariant,
+                  ),
                   Expanded(
                     child: _detail(
                       Icons.bed_outlined,
@@ -213,6 +219,22 @@ class _BuildingScreenState extends State<BuildingScreen> {
                     ),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => context.push(
+                  '/documents',
+                  extra: {
+                    'isOwner': true,
+                    'unitId': unit['id'],
+                    'unitNumber': unit['unit_number']?.toString(),
+                  },
+                ),
+                icon: const Icon(Icons.folder_outlined, size: 18),
+                label: const Text('Documents'),
               ),
             ),
           ],
@@ -224,48 +246,65 @@ class _BuildingScreenState extends State<BuildingScreen> {
   Widget _detail(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, size: 15, color: const Color(0xFF2E6DA4)),
+        Icon(icon, size: 15, color: context.accentBlue()),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1A3C6E),
+            color: context.brandText,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+          style: context.mutedBodyStyle.copyWith(fontSize: 10),
         ),
       ],
     );
   }
 
   Widget _buildEmpty() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.door_front_door_outlined,
-              size: 64, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          const Text(
-            'No units yet',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1A3C6E),
+    return ListView(
+      children: [
+        const SizedBox(height: 100),
+        Icon(
+          Icons.door_front_door_outlined,
+          size: 64,
+          color: context.colors.onSurfaceVariant.withValues(alpha: 0.4),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'No units yet',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: context.colors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Tap Add Unit to create flats or rooms for this building.',
+          textAlign: TextAlign.center,
+          style: context.mutedBodyStyle,
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: ElevatedButton.icon(
+            onPressed: _addUnit,
+            icon: const Icon(Icons.add),
+            label: const Text('Add Unit'),
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Add units to this building from the admin panel.',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -274,14 +313,17 @@ class _BuildingScreenState extends State<BuildingScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: context.colors.onSurfaceVariant,
+          ),
           const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: Colors.grey.shade500)),
+          Text(_error!, style: context.mutedBodyStyle),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadUnits,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A3C6E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),

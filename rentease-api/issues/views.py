@@ -19,7 +19,20 @@ class MyIssueListCreateView(generics.ListCreateAPIView):
         ).order_by('-created_at')
 
     def perform_create(self, serializer):
-        serializer.save(reported_by = self.request.user)
+        issue = serializer.save(reported_by=self.request.user)
+        try:
+            from accounts.notifications import create_notification
+
+            owner = issue.unit.building.portfolio.owner
+            create_notification(
+                owner,
+                title="New issue reported",
+                body=f"{issue.title} · Unit {issue.unit.unit_number}",
+                type="issue",
+                data={"type": "issue", "issue_id": str(issue.id)},
+            )
+        except Exception:
+            pass
 
 
 # OWNER VIEWS
@@ -54,4 +67,16 @@ class OwnerIssueUpdateView(APIView):
             )
         issue.status = new_status
         issue.save()
+        try:
+            from accounts.notifications import create_notification
+
+            create_notification(
+                issue.reported_by,
+                title="Issue updated",
+                body=f"{issue.title} is now {new_status.replace('_', ' ')}.",
+                type="issue",
+                data={"type": "issue", "issue_id": str(issue.id)},
+            )
+        except Exception:
+            pass
         return Response(IssueSerializer(issue).data)

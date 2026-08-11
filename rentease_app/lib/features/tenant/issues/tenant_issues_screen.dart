@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
 import '../../../core/api_client.dart';
+import '../../../core/theme/app_surfaces.dart';
 
 class TenantIssuesScreen extends StatefulWidget {
   const TenantIssuesScreen({super.key});
@@ -50,27 +51,21 @@ class _TenantIssuesScreenState extends State<TenantIssuesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
-        elevation: 0,
         title: const Text('My Issues', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openRaiseIssueSheet,
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
         icon: const Icon(Icons.add),
         label: const Text('Raise Issue', style: TextStyle(fontWeight: FontWeight.w600)),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1A3C6E)))
+          ? Center(child: CircularProgressIndicator(color: context.colors.primary))
           : _error != null
           ? _buildError()
           : RefreshIndicator(
         onRefresh: _loadIssues,
-        color: const Color(0xFF1A3C6E),
+        color: context.colors.primary,
         child: _issues.isEmpty ? _buildEmpty() : _buildList(),
       ),
     );
@@ -90,13 +85,25 @@ class _TenantIssuesScreenState extends State<TenantIssuesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.build_outlined, size: 64, color: Colors.grey.shade300),
+          Icon(
+            Icons.build_outlined,
+            size: 64,
+            color: context.colors.onSurfaceVariant.withValues(alpha: 0.4),
+          ),
           const SizedBox(height: 16),
-          const Text('No issues raised yet',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A3C6E))),
+          Text(
+            'No issues raised yet',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: context.colors.onSurface,
+            ),
+          ),
           const SizedBox(height: 6),
-          Text('Tap the button below to report a problem.',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+          Text(
+            'Tap the button below to report a problem.',
+            style: context.mutedBodyStyle,
+          ),
         ],
       ),
     );
@@ -107,14 +114,17 @@ class _TenantIssuesScreenState extends State<TenantIssuesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: context.colors.onSurfaceVariant,
+          ),
           const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: Colors.grey.shade500)),
+          Text(_error!, style: context.mutedBodyStyle),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadIssues,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A3C6E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -141,19 +151,19 @@ class _IssueCard extends StatelessWidget {
     IconData statusIcon;
     switch (status) {
       case 'in_progress':
-        statusColor = const Color(0xFF1565C0);
+        statusColor = context.accentBlue();
         statusIcon = Icons.engineering_rounded;
         break;
       case 'resolved':
-        statusColor = const Color(0xFF388E3C);
+        statusColor = context.accentGreen();
         statusIcon = Icons.check_circle_rounded;
         break;
       case 'closed':
-        statusColor = Colors.grey;
+        statusColor = context.colors.onSurfaceVariant;
         statusIcon = Icons.cancel_rounded;
         break;
       default:
-        statusColor = const Color(0xFFE65100);
+        statusColor = context.accentOrange();
         statusIcon = Icons.report_problem_rounded;
     }
 
@@ -166,13 +176,7 @@ class _IssueCard extends StatelessWidget {
     };
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 4)),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 18),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -183,20 +187,26 @@ class _IssueCard extends StatelessWidget {
                 Container(
                   width: 42, height: 42,
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(categoryIcons[category] ?? Icons.build_outlined, color: statusColor, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(issue['title'] ?? '—',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1A3C6E))),
+                  child: Text(
+                    issue['title'] ?? '—',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: context.colors.onSurface,
+                    ),
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -215,22 +225,31 @@ class _IssueCard extends StatelessWidget {
             ),
             if ((issue['description'] as String? ?? '').isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(issue['description'] as String,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              Text(
+                issue['description'] as String,
+                style: context.mutedBodyStyle,
+              ),
             ],
             const SizedBox(height: 10),
             Row(
               children: [
-                Icon(Icons.category_outlined, size: 13, color: Colors.grey.shade400),
+                Icon(Icons.category_outlined,
+                    size: 13, color: context.colors.onSurfaceVariant),
                 const SizedBox(width: 4),
-                Text(category.toUpperCase(),
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade400, fontWeight: FontWeight.w600)),
+                Text(
+                  category.toUpperCase(),
+                  style: context.mutedBodyStyle.copyWith(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const Spacer(),
-                Icon(Icons.access_time_rounded, size: 13, color: Colors.grey.shade400),
+                Icon(Icons.access_time_rounded,
+                    size: 13, color: context.colors.onSurfaceVariant),
                 const SizedBox(width: 4),
                 Text(
                   (issue['created_at'] as String? ?? '').substring(0, 10),
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                  style: context.mutedBodyStyle.copyWith(fontSize: 11),
                 ),
               ],
             ),
@@ -284,7 +303,10 @@ class _RaiseIssueSheetState extends State<_RaiseIssueSheet> {
     if (!_formKey.currentState!.validate()) return;
     if (_unitId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not find your unit. Try again.'), backgroundColor: Colors.red),
+        SnackBar(
+          content: const Text('Could not find your unit. Try again.'),
+          backgroundColor: context.accentRed(),
+        ),
       );
       return;
     }
@@ -314,13 +336,16 @@ class _RaiseIssueSheetState extends State<_RaiseIssueSheet> {
       if (!mounted) return;
       Navigator.pop(context, true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Issue raised successfully!'), backgroundColor: Color(0xFF388E3C)),
+        SnackBar(
+          content: const Text('Issue raised successfully!'),
+          backgroundColor: context.accentGreen(),
+        ),
       );
     } on DioException catch (e) {
       if (!mounted) return;
       final msg = e.response?.data?.toString() ?? 'Failed to raise issue.';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+        SnackBar(content: Text(msg), backgroundColor: context.accentRed()),
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -330,9 +355,9 @@ class _RaiseIssueSheetState extends State<_RaiseIssueSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: context.colors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.only(
         left: 24, right: 24, top: 24,
@@ -348,12 +373,21 @@ class _RaiseIssueSheetState extends State<_RaiseIssueSheet> {
               Center(
                 child: Container(
                   width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(
+                    color: context.colors.outlineVariant,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
-              const Text('Raise an Issue',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A3C6E))),
+              Text(
+                'Raise an Issue',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: context.colors.onSurface,
+                ),
+              ),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _titleCtrl,
@@ -397,9 +431,9 @@ class _RaiseIssueSheetState extends State<_RaiseIssueSheet> {
                   width: double.infinity,
                   height: _photo != null ? 160 : 80,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF5F7FA),
+                    color: context.softFill,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: context.colors.outlineVariant),
                   ),
                   child: _photo != null
                       ? ClipRRect(
@@ -409,9 +443,16 @@ class _RaiseIssueSheetState extends State<_RaiseIssueSheet> {
                       : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add_photo_alternate_outlined, size: 30, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.add_photo_alternate_outlined,
+                        size: 30,
+                        color: context.colors.onSurfaceVariant,
+                      ),
                       const SizedBox(height: 6),
-                      Text('Add Photo (optional)', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                      Text(
+                        'Add Photo (optional)',
+                        style: context.mutedBodyStyle,
+                      ),
                     ],
                   ),
                 ),
@@ -423,7 +464,6 @@ class _RaiseIssueSheetState extends State<_RaiseIssueSheet> {
                 child: ElevatedButton(
                   onPressed: _isSubmitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A3C6E),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     elevation: 0,

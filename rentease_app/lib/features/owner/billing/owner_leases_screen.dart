@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/theme/app_surfaces.dart';
 
 class OwnerLeasesScreen extends StatefulWidget {
   const OwnerLeasesScreen({super.key});
@@ -39,16 +40,94 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
     }
   }
 
+  Future<void> _endTenancy(Map<String, dynamic> lease) async {
+    final unit = lease['unit_number']?.toString() ?? '—';
+    final leaseId = lease['id'];
+
+    double unpaid = 0;
+    try {
+      final preview =
+          await apiClient.get('/api/v1/properties/leases/$leaseId/end/');
+      unpaid = (preview.data['unpaid_amount'] as num?)?.toDouble() ?? 0;
+    } on DioException {
+      // continue with generic confirm
+    }
+
+    if (!mounted) return;
+
+    final hasUnpaid = unpaid > 0;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(hasUnpaid ? 'Pending rent on this unit' : 'End tenancy?'),
+        content: Text(
+          hasUnpaid
+              ? 'Unit $unit still has ₹${unpaid.toStringAsFixed(0)} unpaid rent '
+                  '(pending/overdue).\n\n'
+                  'If you end tenancy now, that unpaid rent will be removed from '
+                  'analytics. Paid history is kept.\n\n'
+                  'Do you still want to remove this tenant?'
+              : 'This will end the lease for Unit $unit, mark the unit vacant, '
+                  'and the tenant will no longer see an active lease. '
+                  'Paid invoices stay for your records.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              hasUnpaid ? 'End anyway & clear pending' : 'End tenancy',
+              style: const TextStyle(color: Colors.red),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    try {
+      await apiClient.post(
+        '/api/v1/properties/leases/$leaseId/end/',
+        data: {'clear_pending': true},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            hasUnpaid
+                ? 'Tenancy ended. Pending rent cleared for Unit $unit.'
+                : 'Tenancy ended for Unit $unit.',
+          ),
+        ),
+      );
+      _loadLeases();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final detail = e.response?.data is Map
+          ? (e.response!.data as Map)['detail']?.toString()
+          : null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(detail ?? 'Could not end tenancy.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return _isLoading
-        ? const Center(
-            child: CircularProgressIndicator(color: Color(0xFF1A3C6E)))
+        ? Center(
+            child: CircularProgressIndicator(color: context.colors.primary))
         : _error != null
             ? _buildError()
             : RefreshIndicator(
                 onRefresh: _loadLeases,
-                color: const Color(0xFF1A3C6E),
+                color: context.colors.primary,
                 child: _leases.isEmpty
                     ? _buildEmpty()
                     : ListView.separated(
@@ -66,25 +145,15 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
 
     Color statusColor;
     if (isActive) {
-      statusColor = const Color(0xFF388E3C);
-    } else if (status == 'expired') {
-      statusColor = Colors.grey;
+      statusColor = context.accentGreen();
+    } else if (status == 'ended' || status == 'expired') {
+      statusColor = context.colors.onSurfaceVariant;
     } else {
-      statusColor = const Color(0xFFE65100);
+      statusColor = context.accentOrange();
     }
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
         onTap: () => context.push(
@@ -108,12 +177,12 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
                         width: 42,
                         height: 42,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1A3C6E).withOpacity(0.1),
+                          color: context.brandText.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.receipt_long_rounded,
-                          color: Color(0xFF1A3C6E),
+                          color: context.brandText,
                           size: 22,
                         ),
                       ),
@@ -123,19 +192,16 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
                         children: [
                           Text(
                             'Unit ${lease['unit_number'] ?? '—'}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              color: Color(0xFF1A3C6E),
+                              color: context.brandText,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             lease['building_name'] ?? '—',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
-                            ),
+                            style: context.mutedBodyStyle.copyWith(fontSize: 12),
                           ),
                         ],
                       ),
@@ -145,7 +211,7 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
+                      color: statusColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -163,7 +229,7 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF5F7FA),
+                  color: context.softFill,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -178,7 +244,7 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
                     Container(
                         width: 1,
                         height: 32,
-                        color: Colors.grey.shade200),
+                        color: context.colors.outlineVariant),
                     Expanded(
                       child: _detail(
                         Icons.calendar_today_rounded,
@@ -189,7 +255,7 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
                     Container(
                         width: 1,
                         height: 32,
-                        color: Colors.grey.shade200),
+                        color: context.colors.outlineVariant),
                     Expanded(
                       child: _detail(
                         Icons.date_range_rounded,
@@ -203,20 +269,34 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
               const SizedBox(height: 12),
               Row(
                 children: [
+                  if (isActive)
+                    TextButton(
+                      onPressed: () => _endTenancy(lease),
+                      style: TextButton.styleFrom(
+                        foregroundColor: context.accentRed(),
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'End tenancy',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
                   const Spacer(),
                   Text(
                     'View Invoices',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1A3C6E).withOpacity(0.8),
+                      color: context.brandText.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(
+                  Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 13,
-                    color: Color(0xFF1A3C6E),
+                    color: context.brandText,
                   ),
                 ],
               ),
@@ -230,45 +310,45 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
   Widget _detail(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, size: 15, color: const Color(0xFF2E6DA4)),
+        Icon(icon, size: 15, color: context.accentBlue()),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1A3C6E),
+            color: context.brandText,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+          style: context.mutedBodyStyle.copyWith(fontSize: 10),
         ),
       ],
     );
   }
 
   Widget _buildEmpty() {
+    final muted = context.colors.onSurfaceVariant;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.receipt_long_outlined,
-              size: 64, color: Colors.grey.shade300),
+          Icon(Icons.receipt_long_outlined, size: 64, color: muted),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No leases yet',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A3C6E),
+              color: context.colors.onSurface,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Create a lease to start tracking payments.',
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 13, color: muted),
           ),
         ],
       ),
@@ -276,18 +356,18 @@ class _OwnerLeasesScreenState extends State<OwnerLeasesScreen> {
   }
 
   Widget _buildError() {
+    final muted = context.colors.onSurfaceVariant;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          Icon(Icons.error_outline, size: 48, color: muted),
           const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: Colors.grey.shade500)),
+          Text(_error!, style: TextStyle(color: muted)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadLeases,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A3C6E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),

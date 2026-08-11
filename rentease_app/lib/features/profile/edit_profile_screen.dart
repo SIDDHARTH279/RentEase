@@ -4,6 +4,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
+import '../../core/theme/app_surfaces.dart';
+import '../../core/theme/appearance_tile.dart';
 
 class EditProfileScreen extends StatefulWidget {
   /// If true, user cannot go back until profile is complete.
@@ -122,15 +124,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
-        elevation: 0,
         title: Text(
           widget.requireComplete ? 'Complete your profile' : 'Edit Profile',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         leading: widget.requireComplete
             ? null
@@ -141,8 +140,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         automaticallyImplyLeading: !widget.requireComplete,
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1A3C6E)))
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Form(
@@ -150,18 +148,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (!widget.requireComplete) ...[
+                      const AppearanceSection(),
+                      const SizedBox(height: 28),
+                    ],
                     if (widget.requireComplete) ...[
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE3F2FD),
+                          color: scheme.primaryContainer.withValues(alpha: 0.45),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Add your name and phone so owners/tenants can identify you.',
                           style: TextStyle(
-                            color: Color(0xFF1565C0),
+                            color: scheme.onPrimaryContainer,
                             fontSize: 13,
                           ),
                         ),
@@ -225,29 +227,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     if (_error != null) ...[
                       const SizedBox(height: 14),
                       Text(_error!,
-                          style: const TextStyle(color: Color(0xFFD32F2F))),
+                          style: TextStyle(color: context.accentRed())),
                     ],
                     const SizedBox(height: 28),
                     SizedBox(
                       width: double.infinity,
                       height: 52,
-                      child: ElevatedButton(
+                      child: FilledButton(
                         onPressed: _isSaving ? null : _save,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A3C6E),
-                          foregroundColor: Colors.white,
+                        style: FilledButton.styleFrom(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          elevation: 0,
                         ),
                         child: _isSaving
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 22,
                                 height: 22,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.5,
-                                  color: Colors.white,
+                                  color: scheme.onPrimary,
                                 ),
                               )
                             : Text(
@@ -270,35 +269,37 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Widget _label(String text) => Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.w600,
-          color: Color(0xFF1A3C6E),
+          color: context.brandText,
           fontSize: 14,
         ),
       );
 
   InputDecoration _decoration({required IconData icon, String? hint}) {
+    final scheme = context.colors;
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(icon, color: const Color(0xFF2E6DA4), size: 20),
+      hintStyle: TextStyle(color: scheme.onSurfaceVariant),
+      prefixIcon: Icon(icon, color: scheme.primary, size: 20),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: context.softFill,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFF2E6DA4), width: 1.5),
+        borderSide: BorderSide(color: scheme.primary, width: 1.5),
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: BorderSide(color: scheme.outlineVariant),
       ),
     );
   }

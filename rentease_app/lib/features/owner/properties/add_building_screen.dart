@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/theme/app_surfaces.dart';
 
 class AddBuildingScreen extends StatefulWidget {
   const AddBuildingScreen({super.key});
@@ -46,13 +47,28 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
     } catch (_) {}
   }
 
+  Future<int> _ensurePortfolio() async {
+    if (_portfolioId != null) return _portfolioId!;
+
+    final response = await apiClient.get('/api/v1/properties/portfolios/');
+    final portfolios = response.data as List<dynamic>;
+    if (portfolios.isNotEmpty) {
+      final id = portfolios.first['id'] as int;
+      if (mounted) setState(() => _portfolioId = id);
+      return id;
+    }
+
+    final created = await apiClient.post(
+      '/api/v1/properties/portfolios/',
+      data: {'name': 'My Portfolio'},
+    );
+    final id = created.data['id'] as int;
+    if (mounted) setState(() => _portfolioId = id);
+    return id;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-
-    if (_portfolioId == null) {
-      setState(() => _errorMessage = 'No portfolio found. Please create one first.');
-      return;
-    }
 
     setState(() {
       _isLoading = true;
@@ -60,10 +76,11 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
     });
 
     try {
+      final portfolioId = await _ensurePortfolio();
       await apiClient.post(
         '/api/v1/properties/buildings/',
         data: {
-          'portfolio': _portfolioId,
+          'portfolio': portfolioId,
           'name': _nameController.text.trim(),
           'address': _addressController.text.trim(),
           'city': _cityController.text.trim(),
@@ -85,12 +102,12 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final brand = context.brandText;
+    final accent = context.accentBlue();
+    final errColor = context.accentRed();
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
-        elevation: 0,
         title: const Text(
           'Add Building',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -103,29 +120,24 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // header card
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A3C6E).withOpacity(0.06),
+                  color: brand.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: const Color(0xFF1A3C6E).withOpacity(0.12),
+                    color: brand.withValues(alpha: 0.2),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.apartment_rounded,
-                        color: Color(0xFF1A3C6E), size: 22),
-                    SizedBox(width: 10),
+                    Icon(Icons.apartment_rounded, color: brand, size: 22),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Fill in the building details below.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF1A3C6E),
-                        ),
+                        style: TextStyle(fontSize: 13, color: brand),
                       ),
                     ),
                   ],
@@ -133,7 +145,6 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
               ),
               const SizedBox(height: 24),
 
-              // building name
               _buildLabel('Building Name'),
               const SizedBox(height: 6),
               TextFormField(
@@ -148,7 +159,6 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
               ),
               const SizedBox(height: 16),
 
-              // address
               _buildLabel('Address'),
               const SizedBox(height: 6),
               TextFormField(
@@ -164,7 +174,6 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
               ),
               const SizedBox(height: 16),
 
-              // city
               _buildLabel('City'),
               const SizedBox(height: 6),
               TextFormField(
@@ -179,23 +188,22 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
               ),
               const SizedBox(height: 16),
 
-              // building type
               _buildLabel('Building Type'),
               const SizedBox(height: 6),
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: context.colors.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey.shade200),
+                  border: Border.all(color: context.colors.outlineVariant),
                 ),
                 child: DropdownButtonFormField<String>(
                   value: _selectedType,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     border: InputBorder.none,
                     prefixIcon: Icon(Icons.category_outlined,
-                        color: Color(0xFF2E6DA4), size: 20),
+                        color: accent, size: 20),
                   ),
                   items: const [
                     DropdownMenuItem(
@@ -217,7 +225,6 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
                 ),
               ),
 
-              // error
               if (_errorMessage != null) ...[
                 const SizedBox(height: 16),
                 Container(
@@ -226,21 +233,17 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEBEE),
+                    color: errColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline,
-                          color: Color(0xFFD32F2F), size: 18),
+                      Icon(Icons.error_outline, color: errColor, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: const TextStyle(
-                            color: Color(0xFFD32F2F),
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: errColor, fontSize: 13),
                         ),
                       ),
                     ],
@@ -250,17 +253,15 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
 
               const SizedBox(height: 32),
 
-              // submit button
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A3C6E),
                     foregroundColor: Colors.white,
                     disabledBackgroundColor:
-                        const Color(0xFF1A3C6E).withOpacity(0.5),
+                        context.colors.primary.withValues(alpha: 0.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -294,10 +295,10 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
   Widget _buildLabel(String text) {
     return Text(
       text,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF2D3748),
+        color: context.colors.onSurface,
       ),
     );
   }
@@ -306,12 +307,17 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
     required String hint,
     required IconData icon,
   }) {
+    final accent = context.accentBlue();
+    final errColor = context.accentRed();
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(icon, color: const Color(0xFF2E6DA4), size: 20),
-      hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+      prefixIcon: Icon(icon, color: accent, size: 20),
+      hintStyle: TextStyle(
+        color: context.colors.onSurfaceVariant.withValues(alpha: 0.7),
+        fontSize: 14,
+      ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: context.colors.surface,
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
@@ -320,21 +326,19 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade200),
+        borderSide: BorderSide(color: context.colors.outlineVariant),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide:
-            const BorderSide(color: Color(0xFF2E6DA4), width: 1.5),
+        borderSide: BorderSide(color: accent, width: 1.5),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0xFFD32F2F)),
+        borderSide: BorderSide(color: errColor),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide:
-            const BorderSide(color: Color(0xFFD32F2F), width: 1.5),
+        borderSide: BorderSide(color: errColor, width: 1.5),
       ),
     );
   }

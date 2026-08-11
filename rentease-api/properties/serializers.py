@@ -10,18 +10,43 @@ class PortfolioSerializer(serializers.ModelSerializer):
 
 
 class BuildingSerializer(serializers.ModelSerializer):
+    portfolio = serializers.PrimaryKeyRelatedField(
+        queryset=Portfolio.objects.all(),
+        required=False,
+        allow_null=True,
+    )
+
     class Meta:
         model = Building
         fields = ("id", "portfolio", "name", "address", "city", "type", "created_at")
         read_only_fields = ("id", "created_at")
 
+    def create(self, validated_data):
+        request = self.context["request"]
+        portfolio = validated_data.get("portfolio")
+        if portfolio is None:
+            name = (request.user.first_name or "My").strip() or "My"
+            portfolio, _ = Portfolio.objects.get_or_create(
+                owner=request.user,
+                defaults={"name": f"{name}'s Portfolio"},
+            )
+            validated_data["portfolio"] = portfolio
+        elif portfolio.owner_id != request.user.id:
+            raise serializers.ValidationError(
+                {"portfolio": "Portfolio not found or not owned by you."}
+            )
+        return super().create(validated_data)
+
 
 class UnitSerializer(serializers.ModelSerializer):
+    building_name = serializers.CharField(source="building.name", read_only=True)
+
     class Meta:
         model = Unit
         fields = (
             "id",
             "building",
+            "building_name",
             "unit_number",
             "floor",
             "bedrooms",
@@ -30,7 +55,16 @@ class UnitSerializer(serializers.ModelSerializer):
             "is_vacant",
             "created_at",
         )
-        read_only_fields = ("id", "created_at")
+        read_only_fields = ("id", "created_at", "building_name")
+
+    def validate_building(self, building):
+        request = self.context.get("request")
+        if (
+            request
+            and building.portfolio.owner_id != request.user.id
+        ):
+            raise serializers.ValidationError("Not your building.")
+        return building
 
 
 class LeaseSerializer(serializers.ModelSerializer):

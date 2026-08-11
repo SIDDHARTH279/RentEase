@@ -8,6 +8,7 @@ from .views import (
     UnitDetailView,
     LeaseListCreateView,
     LeaseDetailView,
+    EndLeaseView,
     LeaseTenantListCreateView,
     LeaseTenantDetailView,
     MyLeaseView,
@@ -30,6 +31,7 @@ urlpatterns = [
     # Lease
     path("leases/", LeaseListCreateView.as_view(), name="lease-list"),
     path("leases/<int:pk>/", LeaseDetailView.as_view(), name="lease-detail"),
+    path("leases/<int:pk>/end/", EndLeaseView.as_view(), name="lease-end"),
 
     # LeaseTenant
     path("lease-tenants/", LeaseTenantListCreateView.as_view(), name="lease-tenant-list"),

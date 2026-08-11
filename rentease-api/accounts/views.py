@@ -318,6 +318,15 @@ class GoogleLoginView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        if user.role == User.Role.OWNER:
+            from properties.models import Portfolio
+
+            name = (user.first_name or "My").strip() or "My"
+            Portfolio.objects.get_or_create(
+                owner=user,
+                defaults={"name": f"{name}'s Portfolio"},
+            )
+
         return _jwt_response(user, created=created)
 
 
@@ -408,7 +417,7 @@ class AcceptInviteView(APIView):
         refresh = RefreshToken.for_user(tenant_user)
         return Response(
             {
-                "message": "Invite accepted. Welcome to RentLedger!",
+                "message": "Invite accepted. Welcome to RentEase!",
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
                 "user": _user_payload(tenant_user),

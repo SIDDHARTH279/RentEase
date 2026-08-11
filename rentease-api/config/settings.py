@@ -13,9 +13,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config("DEBUG", default=True, cast=bool)
 
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "*"]
+_allowed = config("ALLOWED_HOSTS", default="127.0.0.1,localhost")
+ALLOWED_HOSTS = [h.strip() for h in _allowed.split(",") if h.strip()]
+if DEBUG and "*" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS += ["*", "192.168.29.75"]
+
+_csrf = config("CSRF_TRUSTED_ORIGINS", default="")
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf.split(",") if o.strip()]
 
 
 import os
@@ -27,10 +33,14 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     'accounts',
     "properties",
     "billing",
     "issues",
+    "messaging",
+    "expenses",
+    "documents",
     "django_celery_beat",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -41,10 +51,12 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     "rest_framework_simplejwt.token_blacklist",
+    "channels",
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -71,6 +83,24 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+
+# Redis 5.x (common on Windows) breaks with channels-redis + redis-py 8.
+# Use in-memory for local/dev; Redis channel layer needs Redis 6+ in production.
+if DEBUG:
+    CHANNEL_LAYERS = {
+        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
+    }
+else:
+    _REDIS_URL = config("CELERY_BROKER_URL", default="redis://localhost:6379/0")
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [{"address": _REDIS_URL, "protocol": 2}],
+            },
+        },
+    }
 
 
 # Database
@@ -113,6 +143,11 @@ AUTH_PASSWORD_VALIDATORS = [
 GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
 PUBLIC_BASE_URL = config('PUBLIC_BASE_URL', default='http://127.0.0.1:8000')
 
+# Razorpay (test keys for local; live keys in production)
+RAZORPAY_KEY_ID = config("RAZORPAY_KEY_ID", default="")
+RAZORPAY_KEY_SECRET = config("RAZORPAY_KEY_SECRET", default="")
+RAZORPAY_WEBHOOK_SECRET = config("RAZORPAY_WEBHOOK_SECRET", default="")
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
@@ -130,6 +165,28 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage.CompressedStaticFilesStorage"
+            if not DEBUG
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        ),
+    },
+}
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=True, cast=bool)
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
 
 
 # Email
@@ -191,6 +248,16 @@ CELERY_BEAT_SCHEDULE = {
     'mark-overdue-invoices': {
         'task': 'billing.tasks.mark_overdue_invoices',
         'schedule': crontab(hour=0, minute=0),
+    },
+    # Every day at 10:00 AM IST — due today/tomorrow reminders
+    'send-rent-due-reminders': {
+        'task': 'billing.tasks.send_rent_due_reminders',
+        'schedule': crontab(hour=10, minute=0),
+    },
+    # Every day at 11:00 AM IST — lease renewal (30 / 7 days)
+    'send-lease-renewal-reminders': {
+        'task': 'billing.tasks.send_lease_renewal_reminders',
+        'schedule': crontab(hour=11, minute=0),
     },
 }
 

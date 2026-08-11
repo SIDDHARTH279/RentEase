@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'app_config.dart';
+
 const String accessTokenKey = 'access_token';
 const String refreshTokenKey = 'refresh_token';
 
@@ -8,9 +10,9 @@ final _storage = const FlutterSecureStorage();
 
 final Dio apiClient = Dio(
   BaseOptions(
-    baseUrl: 'http://192.168.29.75:8000',
-    connectTimeout: Duration(seconds: 10),
-    receiveTimeout: Duration(seconds: 10),
+    baseUrl: AppConfig.apiBaseUrl,
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
     headers: {
       'Content-Type': 'application/json',
     },
@@ -21,6 +23,10 @@ final Dio apiClient = Dio(
       final token = await _storage.read(key: accessTokenKey);
       if (token != null) {
         options.headers['Authorization'] = 'Bearer $token';
+      }
+      // Let Dio set multipart boundary for FormData uploads
+      if (options.data is FormData) {
+        options.headers.remove(Headers.contentTypeHeader);
       }
       handler.next(options);
     },
@@ -37,7 +43,7 @@ final Dio apiClient = Dio(
 
         try {
           final response = await Dio().post(
-            'http://192.168.29.75:8000/api/v1/auth/refresh/',
+            '${AppConfig.apiBaseUrl}/api/v1/auth/refresh/',
             data: {'refresh': refreshToken},
           );
 

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/theme/app_surfaces.dart';
 
 class OwnerIssuesScreen extends StatefulWidget {
   const OwnerIssuesScreen({super.key});
@@ -53,14 +54,14 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Status updated to ${newStatus.replaceAll('_', ' ')}'),
-          backgroundColor: const Color(0xFF388E3C),
+          backgroundColor: context.accentGreen(),
         ),
       );
       await _loadIssues();
     } on DioException catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to update status.'), backgroundColor: Colors.red),
+        SnackBar(content: const Text('Failed to update status.'), backgroundColor: context.accentRed()),
       );
     }
   }
@@ -69,30 +70,37 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
     final statuses = ['open', 'in_progress', 'resolved', 'closed'];
     showModalBottomSheet(
       context: context,
+      backgroundColor: context.colors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => Padding(
+      builder: (sheetCtx) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Update Status',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A3C6E))),
+            Text(
+              'Update Status',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: sheetCtx.colors.onSurface,
+              ),
+            ),
             const SizedBox(height: 16),
             ...statuses.map((s) {
               final isCurrent = issue['status'] == s;
               return ListTile(
                 leading: Icon(
                   isCurrent ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                  color: const Color(0xFF1A3C6E),
+                  color: sheetCtx.brandText,
                 ),
                 title: Text(
                   s.replaceAll('_', ' ').toUpperCase(),
                   style: TextStyle(
                     fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
-                    color: const Color(0xFF1A3C6E),
+                    color: sheetCtx.colors.onSurface,
                   ),
                 ),
                 onTap: () {
@@ -110,7 +118,7 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
   @override
   Widget build(BuildContext context) {
     return _isLoading
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF1A3C6E)))
+        ? Center(child: CircularProgressIndicator(color: context.colors.primary))
         : _error != null
         ? _buildError()
         : Column(
@@ -119,7 +127,7 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: _loadIssues,
-            color: const Color(0xFF1A3C6E),
+            color: context.colors.primary,
             child: _filteredIssues.isEmpty
                 ? _buildEmpty()
                 : ListView.separated(
@@ -136,7 +144,7 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
 
   Widget _buildFilterBar() {
     return Container(
-      color: Colors.white,
+      color: context.colors.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -150,7 +158,9 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? const Color(0xFF1A3C6E) : const Color(0xFFF5F7FA),
+                    color: isSelected
+                        ? context.colors.primary
+                        : context.softFill,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -158,7 +168,9 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: isSelected ? Colors.white : Colors.grey.shade600,
+                      color: isSelected
+                          ? context.colors.onPrimary
+                          : context.colors.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -176,26 +188,20 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
     Color statusColor;
     switch (status) {
       case 'in_progress':
-        statusColor = const Color(0xFF1565C0);
+        statusColor = context.accentBlue();
         break;
       case 'resolved':
-        statusColor = const Color(0xFF388E3C);
+        statusColor = context.accentGreen();
         break;
       case 'closed':
-        statusColor = Colors.grey;
+        statusColor = context.colors.onSurfaceVariant;
         break;
       default:
-        statusColor = const Color(0xFFE65100);
+        statusColor = context.accentOrange();
     }
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 4)),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 18),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -204,13 +210,19 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
             Row(
               children: [
                 Expanded(
-                  child: Text(issue['title'] ?? '—',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF1A3C6E))),
+                  child: Text(
+                    issue['title'] ?? '—',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: context.colors.onSurface,
+                    ),
+                  ),
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.1),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -222,25 +234,33 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
             ),
             if ((issue['description'] as String? ?? '').isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(issue['description'] as String,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              Text(
+                issue['description'] as String,
+                style: context.mutedBodyStyle,
+              ),
             ],
             const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.person_outline_rounded, size: 13, color: Colors.grey.shade400),
+                Icon(Icons.person_outline_rounded,
+                    size: 13, color: context.colors.onSurfaceVariant),
                 const SizedBox(width: 4),
-                Text(issue['reported_by_email'] ?? '—',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                Text(
+                  issue['reported_by_email'] ?? '—',
+                  style: context.mutedBodyStyle.copyWith(fontSize: 11),
+                ),
                 const SizedBox(width: 12),
-                Icon(Icons.door_front_door_outlined, size: 13, color: Colors.grey.shade400),
+                Icon(Icons.door_front_door_outlined,
+                    size: 13, color: context.colors.onSurfaceVariant),
                 const SizedBox(width: 4),
-                Text('Unit ${issue['unit_number'] ?? '—'}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                Text(
+                  'Unit ${issue['unit_number'] ?? '—'}',
+                  style: context.mutedBodyStyle.copyWith(fontSize: 11),
+                ),
                 const Spacer(),
                 Text(
                   (issue['created_at'] as String? ?? '').substring(0, 10),
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                  style: context.mutedBodyStyle.copyWith(fontSize: 11),
                 ),
               ],
             ),
@@ -252,8 +272,8 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
                 icon: const Icon(Icons.edit_outlined, size: 16),
                 label: const Text('Update Status'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF1A3C6E),
-                  side: const BorderSide(color: Color(0xFF1A3C6E)),
+                  foregroundColor: context.brandText,
+                  side: BorderSide(color: context.brandText),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
@@ -270,12 +290,22 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_circle_outline_rounded, size: 64, color: Colors.grey.shade300),
+          Icon(
+            Icons.check_circle_outline_rounded,
+            size: 64,
+            color: context.colors.onSurfaceVariant.withValues(alpha: 0.4),
+          ),
           const SizedBox(height: 16),
-          const Text('No issues found',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1A3C6E))),
+          Text(
+            'No issues found',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: context.colors.onSurface,
+            ),
+          ),
           const SizedBox(height: 6),
-          Text('All clear!', style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+          Text('All clear!', style: context.mutedBodyStyle),
         ],
       ),
     );
@@ -286,14 +316,17 @@ class _OwnerIssuesScreenState extends State<OwnerIssuesScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: context.colors.onSurfaceVariant,
+          ),
           const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: Colors.grey.shade500)),
+          Text(_error!, style: context.mutedBodyStyle),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadIssues,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A3C6E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),

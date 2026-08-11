@@ -34,6 +34,13 @@ class RegisterSerializer(serializers.ModelSerializer):
             phone=validated_data.get("phone", ""),
             role=User.Role.OWNER,
         )
+        from properties.models import Portfolio
+
+        name = (user.first_name or "My").strip() or "My"
+        Portfolio.objects.get_or_create(
+            owner=user,
+            defaults={"name": f"{name}'s Portfolio"},
+        )
         return user
 
 
@@ -67,7 +74,8 @@ class LoginSerializer(serializers.Serializer):
 
 class InviteTenantSerializer(serializers.Serializer):
     email = serializers.EmailField()
-    lease_id = serializers.IntegerField()
+    lease_id = serializers.IntegerField(required=False)
+    unit_id = serializers.IntegerField(required=False)
     rent_share_pct = serializers.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -75,18 +83,54 @@ class InviteTenantSerializer(serializers.Serializer):
         min_value=0,
         max_value=100,
     )
+    due_day = serializers.IntegerField(required=False, min_value=1, max_value=28, default=5)
 
     def validate(self, attrs):
-        from properties.models import Lease, LeaseTenant
-        request = self.context["request"]
+        from datetime import date
 
-        try:
-            lease = Lease.objects.get(
-                id=attrs["lease_id"],
-                unit__building__portfolio__owner=request.user,
+        from properties.models import Lease, LeaseTenant, Unit
+
+        request = self.context["request"]
+        lease_id = attrs.get("lease_id")
+        unit_id = attrs.get("unit_id")
+
+        if not lease_id and not unit_id:
+            raise serializers.ValidationError("Provide unit_id or lease_id.")
+
+        lease = None
+        if lease_id:
+            try:
+                lease = Lease.objects.get(
+                    id=lease_id,
+                    unit__building__portfolio__owner=request.user,
+                )
+            except Lease.DoesNotExist:
+                raise serializers.ValidationError("Lease not found or not owned by you.")
+        else:
+            try:
+                unit = Unit.objects.select_related("building__portfolio").get(
+                    id=unit_id,
+                    building__portfolio__owner=request.user,
+                )
+            except Unit.DoesNotExist:
+                raise serializers.ValidationError("Unit not found or not owned by you.")
+
+            lease = (
+                Lease.objects.filter(unit=unit, status=Lease.LeaseStatus.ACTIVE)
+                .order_by("-created_at")
+                .first()
             )
-        except Lease.DoesNotExist:
-            raise serializers.ValidationError("Lease not found or not owned by you.")
+            if lease is None:
+                lease = Lease.objects.create(
+                    unit=unit,
+                    monthly_rent=unit.base_rent,
+                    due_day=attrs.get("due_day") or 5,
+                    start_date=date.today(),
+                    status=Lease.LeaseStatus.ACTIVE,
+                )
+                if unit.is_vacant:
+                    unit.is_vacant = False
+                    unit.save(update_fields=["is_vacant"])
 
         if LeaseTenant.objects.filter(
             lease=lease, tenant__email=attrs["email"]
@@ -94,10 +138,14 @@ class InviteTenantSerializer(serializers.Serializer):
             raise serializers.ValidationError("Tenant already linked to this lease.")
 
         if TenantInvite.objects.filter(
-            lease=lease, email=attrs["email"], is_accepted=False,
-            expires_at__gt=timezone.now()
+            lease=lease,
+            email=attrs["email"],
+            is_accepted=False,
+            expires_at__gt=timezone.now(),
         ).exists():
-            raise serializers.ValidationError("An active invite already exists for this email.")
+            raise serializers.ValidationError(
+                "An active invite already exists for this email."
+            )
 
         attrs["lease"] = lease
         return attrs

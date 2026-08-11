@@ -1,5 +1,19 @@
 from django.contrib import admin
-from .models import RentInvoice, RentShare, Payment
+from .models import PaymentGatewayConfig, RentInvoice, RentShare, Payment
+
+
+@admin.register(PaymentGatewayConfig)
+class PaymentGatewayConfigAdmin(admin.ModelAdmin):
+    list_display = (
+        "owner",
+        "razorpay_key_id",
+        "is_enabled",
+        "upi_id",
+        "show_manual_details",
+        "updated_at",
+    )
+    search_fields = ("owner__email", "razorpay_key_id", "upi_id")
+    readonly_fields = ("razorpay_key_secret_encrypted", "created_at", "updated_at")
 
 
 class RentShareInline(admin.TabularInline):
@@ -24,5 +38,14 @@ class RentShareAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ("rent_share", "amount", "status", "paid_at", "gateway_payment_id")
-    list_filter = ("status",)
+    list_display = (
+        "rent_share",
+        "amount",
+        "method",
+        "status",
+        "paid_at",
+        "gateway_order_id",
+        "gateway_payment_id",
+    )
+    list_filter = ("status", "method")
+    search_fields = ("gateway_order_id", "gateway_payment_id")

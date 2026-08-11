@@ -5,6 +5,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api_client.dart';
 import '../../../core/auth_utils.dart';
+import '../../../core/theme/app_surfaces.dart';
+import '../../../core/theme/theme_controller.dart';
+import '../../activity/notification_bell.dart';
+import '../../chat/tenant_chat_entry.dart';
 
 class TenantHomeScreen extends StatefulWidget {
   const TenantHomeScreen({super.key});
@@ -79,29 +83,61 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
     return next.difference(now).inDays;
   }
 
+  Future<void> _cycleTheme() async {
+    final c = ThemeController.instance;
+    final next = switch (c.mode) {
+      ThemeMode.system => ThemeMode.light,
+      ThemeMode.light => ThemeMode.dark,
+      ThemeMode.dark => ThemeMode.system,
+    };
+    await c.setMode(next);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Theme: ${c.label}')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A3C6E),
-        foregroundColor: Colors.white,
-        elevation: 0,
         title: const Row(
           children: [
             Icon(Icons.home_work_rounded, size: 20),
             SizedBox(width: 8),
             Text(
-              'RentLedger',
+              'RentEase',
               style: TextStyle(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
                 fontSize: 20,
-                letterSpacing: 0.5,
+                letterSpacing: 0.2,
               ),
             ),
           ],
         ),
         actions: [
+          ListenableBuilder(
+            listenable: ThemeController.instance,
+            builder: (context, _) {
+              final mode = ThemeController.instance.mode;
+              final icon = switch (mode) {
+                ThemeMode.light => Icons.light_mode_outlined,
+                ThemeMode.dark => Icons.dark_mode_outlined,
+                ThemeMode.system => Icons.brightness_auto_outlined,
+              };
+              return IconButton(
+                icon: Icon(icon),
+                onPressed: _cycleTheme,
+                tooltip: 'Theme: ${ThemeController.instance.label}',
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline_rounded),
+            onPressed: () => openTenantChat(context),
+            tooltip: 'Message Owner',
+          ),
+          const NotificationBell(),
           PopupMenuButton<String>(
             icon: const CircleAvatar(
               backgroundColor: Colors.white24,
@@ -110,6 +146,9 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
             ),
             onSelected: (value) {
               if (value == 'profile') _openProfile();
+              if (value == 'documents') {
+                context.push('/documents', extra: {'isOwner': false});
+              }
               if (value == 'logout') logout(context);
             },
             itemBuilder: (_) => [
@@ -128,10 +167,21 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
                           if (_phone.isNotEmpty)
                             Text(_phone,
                                 style: TextStyle(
-                                    fontSize: 11, color: Colors.grey.shade600)),
+                                    fontSize: 11,
+                                    color: context.colors.onSurfaceVariant)),
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'documents',
+                child: Row(
+                  children: [
+                    Icon(Icons.folder_outlined, size: 18),
+                    SizedBox(width: 8),
+                    Text('Documents'),
                   ],
                 ),
               ),
@@ -151,8 +201,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1A3C6E)),
+          ? Center(
+              child: CircularProgressIndicator(color: context.colors.primary),
             )
           : _error != null
               ? _buildError()
@@ -161,7 +211,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
                     await _loadProfile();
                     await _loadData();
                   },
-                  color: const Color(0xFF1A3C6E),
+                  color: context.colors.primary,
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(20),
@@ -183,21 +233,21 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
   }
 
   Widget _buildError() {
+    final muted = context.colors.onSurfaceVariant;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          Icon(Icons.error_outline, size: 48, color: muted),
           const SizedBox(height: 12),
           Text(
             _error!,
-            style: TextStyle(color: Colors.grey.shade500),
+            style: TextStyle(color: muted),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _loadData,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A3C6E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -215,8 +265,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1A3C6E), Color(0xFF2E6DA4)],
+        gradient: LinearGradient(
+          colors: context.isDark
+              ? const [Color(0xFF152033), Color(0xFF1E3A5F)]
+              : const [Color(0xFF1A3C6E), Color(0xFF2E6DA4)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -257,43 +309,33 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
     String dueText;
 
     if (daysLeft == null) {
-      dueBadgeColor = Colors.grey;
+      dueBadgeColor = context.colors.onSurfaceVariant;
       dueText = 'Due day not set';
     } else if (daysLeft == 0) {
-      dueBadgeColor = const Color(0xFFD32F2F);
+      dueBadgeColor = context.accentRed();
       dueText = 'Due today!';
     } else if (daysLeft <= 3) {
-      dueBadgeColor = const Color(0xFFE65100);
+      dueBadgeColor = context.accentOrange();
       dueText = 'Due in $daysLeft day${daysLeft == 1 ? '' : 's'}';
     } else {
-      dueBadgeColor = const Color(0xFF388E3C);
+      dueBadgeColor = context.accentGreen();
       dueText = 'Due in $daysLeft days';
     }
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Monthly Rent',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF1A3C6E),
+                  color: context.brandText,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -303,7 +345,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: dueBadgeColor.withOpacity(0.12),
+                  color: dueBadgeColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
@@ -320,10 +362,10 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
           const SizedBox(height: 12),
           Text(
             '₹$rent',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1A3C6E),
+              color: context.brandText,
             ),
           ),
           const SizedBox(height: 4),
@@ -331,7 +373,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
             dueDay != null
                 ? 'Due on ${_ordinal(dueDay)} of every month'
                 : 'Due day not set',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: context.mutedBodyStyle.copyWith(fontSize: 12),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -348,7 +390,6 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A3C6E),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -365,25 +406,15 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
   Widget _buildUnitCard() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Your Unit',
             style: TextStyle(
               fontSize: 14,
-              color: Color(0xFF1A3C6E),
+              color: context.brandText,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -414,16 +445,16 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          Divider(color: Colors.grey.shade100),
+          Divider(color: context.colors.outlineVariant),
           const SizedBox(height: 8),
           Row(
             children: [
               Icon(Icons.monetization_on_outlined,
-                  size: 16, color: Colors.grey.shade400),
+                  size: 16, color: context.colors.onSurfaceVariant),
               const SizedBox(width: 6),
               Text(
                 'Security deposit: ₹${_unit?['deposit'] ?? '—'}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                style: context.mutedBodyStyle.copyWith(fontSize: 12),
               ),
             ],
           ),
@@ -435,20 +466,20 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
   Widget _unitDetail(IconData icon, String label, String value) {
     return Column(
       children: [
-        Icon(icon, color: const Color(0xFF2E6DA4), size: 22),
+        Icon(icon, color: context.accentBlue(), size: 22),
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
-            color: Color(0xFF1A3C6E),
+            color: context.brandText,
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+          style: context.mutedBodyStyle.copyWith(fontSize: 11),
         ),
       ],
     );
@@ -458,14 +489,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Quick Actions',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A3C6E),
-          ),
-        ),
+        Text('Quick Actions', style: context.sectionTitleStyle),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -473,7 +497,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
               child: _actionCard(
                 icon: Icons.build_outlined,
                 label: 'Raise Issue',
-                color: const Color(0xFFE65100),
+                color: context.accentOrange(),
                 onTap: () => context.push('/tenant/issues'),
               ),
             ),
@@ -482,7 +506,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
               child: _actionCard(
                 icon: Icons.receipt_long_outlined,
                 label: 'Payment History',
-                color: const Color(0xFF388E3C),
+                color: context.accentGreen(),
                 onTap: () => context.push('/tenant/billing'),
               ),
             ),
@@ -491,8 +515,8 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
               child: _actionCard(
                 icon: Icons.chat_bubble_outline_rounded,
                 label: 'Message Owner',
-                color: const Color(0xFF2E6DA4),
-                onTap: () {},
+                color: context.accentBlue(),
+                onTap: () => openTenantChat(context),
               ),
             ),
           ],
@@ -511,17 +535,7 @@ class _TenantHomeScreenState extends State<TenantHomeScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
+        decoration: context.cardDecoration(),
         child: Column(
           children: [
             Icon(icon, color: color, size: 26),

@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/theme/app_surfaces.dart';
 
 class OwnerAnalyticsScreen extends StatefulWidget {
   const OwnerAnalyticsScreen({super.key});
@@ -42,12 +43,12 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
   @override
   Widget build(BuildContext context) {
     return _isLoading
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFF1A3C6E)))
+        ? Center(child: CircularProgressIndicator(color: context.colors.primary))
         : _error != null
             ? _buildError()
             : RefreshIndicator(
                 onRefresh: _load,
-                color: const Color(0xFF1A3C6E),
+                color: context.colors.primary,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(20),
@@ -56,7 +57,13 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                     children: [
                       _buildSummaryCards(),
                       const SizedBox(height: 24),
+                      _buildExpenseSummary(),
+                      const SizedBox(height: 24),
+                      _buildPaymentBreakdown(),
+                      const SizedBox(height: 24),
                       _buildMonthlyChart(),
+                      const SizedBox(height: 24),
+                      _buildExpenseByCategory(),
                       const SizedBox(height: 24),
                       _buildIssueBreakdown(),
                       const SizedBox(height: 20),
@@ -74,9 +81,9 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Overview',
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF1A3C6E)),
+          style: context.sectionTitleStyle.copyWith(fontSize: 17),
         ),
         const SizedBox(height: 12),
         Row(
@@ -86,7 +93,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                 icon: Icons.check_circle_rounded,
                 label: 'Collected',
                 value: '₹${_formatAmount(summary['total_collected'])}',
-                color: const Color(0xFF388E3C),
+                color: context.accentGreen(),
               ),
             ),
             const SizedBox(width: 12),
@@ -95,7 +102,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                 icon: Icons.hourglass_empty_rounded,
                 label: 'Pending',
                 value: '₹${_formatAmount(summary['total_pending'])}',
-                color: const Color(0xFFE65100),
+                color: context.accentOrange(),
               ),
             ),
           ],
@@ -108,7 +115,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                 icon: Icons.warning_rounded,
                 label: 'Overdue',
                 value: '₹${_formatAmount(summary['total_overdue'])}',
-                color: const Color(0xFFD32F2F),
+                color: context.accentRed(),
               ),
             ),
             const SizedBox(width: 12),
@@ -117,7 +124,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                 icon: Icons.apartment_rounded,
                 label: 'Active Leases',
                 value: '${summary['active_leases'] ?? 0}',
-                color: const Color(0xFF1A3C6E),
+                color: context.brandText,
               ),
             ),
           ],
@@ -130,7 +137,9 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                 icon: Icons.build_rounded,
                 label: 'Total Issues',
                 value: '${summary['total_issues'] ?? 0}',
-                color: const Color(0xFF6A1B9A),
+                color: context.isDark
+                    ? const Color(0xFFCE93D8)
+                    : const Color(0xFF6A1B9A),
               ),
             ),
             const SizedBox(width: 12),
@@ -139,12 +148,178 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                 icon: Icons.report_problem_rounded,
                 label: 'Open Issues',
                 value: '${summary['open_issues'] ?? 0}',
-                color: const Color(0xFFE65100),
+                color: context.accentOrange(),
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildExpenseSummary() {
+    final summary = _data?['summary'] as Map<String, dynamic>? ?? {};
+    return Row(
+      children: [
+        Expanded(
+          child: _SummaryCard(
+            icon: Icons.trending_down_rounded,
+            label: 'Expenses',
+            value: '₹${_formatAmount(summary['total_expenses'])}',
+            color: context.accentRed(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _SummaryCard(
+            icon: Icons.account_balance_rounded,
+            label: 'Net income',
+            value: '₹${_formatAmount(summary['net_income'])}',
+            color: context.accentBlue(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpenseByCategory() {
+    final breakdown =
+        _data?['expense_by_category'] as Map<String, dynamic>? ?? {};
+    if (breakdown.isEmpty) return const SizedBox.shrink();
+
+    final entries = breakdown.entries.toList()
+      ..sort((a, b) =>
+          ((b.value as num?) ?? 0).compareTo((a.value as num?) ?? 0));
+    final total = entries.fold<double>(
+        0, (sum, e) => sum + ((e.value as num?)?.toDouble() ?? 0));
+
+    final expenseColor = context.accentRed();
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: context.cardDecoration(radius: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Expenses by Category',
+            style: context.cardTitleStyle.copyWith(fontSize: 15),
+          ),
+          const SizedBox(height: 16),
+          ...entries.map((e) {
+            final amount = (e.value as num?)?.toDouble() ?? 0;
+            final pct = total > 0 ? amount / total : 0.0;
+            final label = e.key.isEmpty
+                ? 'Other'
+                : e.key[0].toUpperCase() + e.key.substring(1);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(label,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: context.colors.onSurfaceVariant)),
+                      Text('₹${_formatAmount(amount)}',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: expenseColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: pct,
+                      minHeight: 8,
+                      backgroundColor: context.softFill,
+                      valueColor: AlwaysStoppedAnimation<Color>(expenseColor),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentBreakdown() {
+    final breakdown = _data?['payment_breakdown'] as Map<String, dynamic>? ?? {};
+    final paid = breakdown['paid'] as int? ?? 0;
+    final pending = breakdown['pending'] as int? ?? 0;
+    final overdue = breakdown['overdue'] as int? ?? 0;
+    final total = paid + pending + overdue;
+    if (total == 0) return const SizedBox.shrink();
+
+    final items = [
+      {'label': 'Paid', 'count': paid, 'color': context.accentGreen()},
+      {'label': 'Pending', 'count': pending, 'color': context.accentOrange()},
+      {'label': 'Overdue', 'count': overdue, 'color': context.accentRed()},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: context.cardDecoration(radius: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Rent Share Status',
+            style: context.cardTitleStyle.copyWith(fontSize: 15),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$total shares across invoices',
+            style: context.mutedBodyStyle.copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          ...items.map((item) {
+            final count = item['count'] as int;
+            final pct = count / total;
+            final color = item['color'] as Color;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(item['label'] as String,
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: context.colors.onSurfaceVariant)),
+                      Text('$count',
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: color)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: pct,
+                      minHeight: 8,
+                      backgroundColor: context.softFill,
+                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
     );
   }
 
@@ -155,20 +330,36 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
     if (trend.isEmpty) return const SizedBox.shrink();
 
     final maxY = trend
-        .map((e) => (e['collected'] as num).toDouble())
+        .map((e) {
+          final c = (e['collected'] as num?)?.toDouble() ?? 0;
+          final x = (e['expenses'] as num?)?.toDouble() ?? 0;
+          return c > x ? c : x;
+        })
         .fold(0.0, (a, b) => a > b ? a : b);
     final chartMax = maxY == 0 ? 10000.0 : maxY * 1.3;
 
+    final collectedColor = context.brandText;
+    final expenseColor = context.accentRed();
+    final muted = context.colors.onSurfaceVariant;
+    final gridColor = context.colors.outlineVariant;
+
     final barGroups = trend.asMap().entries.map((entry) {
-      final val = (entry.value['collected'] as num).toDouble();
+      final collected = (entry.value['collected'] as num?)?.toDouble() ?? 0;
+      final expenses = (entry.value['expenses'] as num?)?.toDouble() ?? 0;
       return BarChartGroupData(
         x: entry.key,
         barRods: [
           BarChartRodData(
-            toY: val,
-            color: const Color(0xFF1A3C6E),
-            width: 18,
-            borderRadius: BorderRadius.circular(6),
+            toY: collected,
+            color: collectedColor,
+            width: 10,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          BarChartRodData(
+            toY: expenses,
+            color: expenseColor,
+            width: 10,
+            borderRadius: BorderRadius.circular(4),
           ),
         ],
       );
@@ -176,23 +367,17 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 4)),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Monthly Collections',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A3C6E)),
+          Text(
+            'Income vs Expenses',
+            style: context.cardTitleStyle.copyWith(fontSize: 15),
           ),
-          const Text(
-            'Last 6 months',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
+          Text(
+            'Last 6 months · blue = collected, red = expenses',
+            style: context.mutedBodyStyle.copyWith(fontSize: 12),
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -206,7 +391,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                   drawVerticalLine: false,
                   horizontalInterval: chartMax / 4,
                   getDrawingHorizontalLine: (_) => FlLine(
-                    color: Colors.grey.shade100,
+                    color: gridColor,
                     strokeWidth: 1,
                   ),
                 ),
@@ -221,7 +406,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                       interval: chartMax / 4,
                       getTitlesWidget: (value, meta) => Text(
                         '₹${_formatAmount(value)}',
-                        style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                        style: TextStyle(fontSize: 9, color: muted),
                       ),
                     ),
                   ),
@@ -237,7 +422,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
                             label,
-                            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                            style: TextStyle(fontSize: 10, color: muted),
                           ),
                         );
                       },
@@ -248,8 +433,9 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       final month = trend[group.x]['month'] as String;
+                      final label = rodIndex == 0 ? 'Collected' : 'Expenses';
                       return BarTooltipItem(
-                        '$month\n₹${_formatAmount(rod.toY)}',
+                        '$month\n$label ₹${_formatAmount(rod.toY)}',
                         const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                       );
                     },
@@ -272,46 +458,42 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
     if (total == 0) {
       return Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 4)),
-          ],
-        ),
-        child: const Row(
+        decoration: context.cardDecoration(radius: 20),
+        child: Row(
           children: [
-            Icon(Icons.check_circle_outline_rounded, color: Color(0xFF388E3C), size: 28),
-            SizedBox(width: 12),
+            Icon(Icons.check_circle_outline_rounded,
+                color: context.accentGreen(), size: 28),
+            const SizedBox(width: 12),
             Text('No issues raised yet — all clear!',
-                style: TextStyle(fontSize: 14, color: Color(0xFF1A3C6E), fontWeight: FontWeight.w500)),
+                style: TextStyle(
+                    fontSize: 14,
+                    color: context.colors.onSurface,
+                    fontWeight: FontWeight.w500)),
           ],
         ),
       );
     }
 
     final items = [
-      {'label': 'Open', 'key': 'open', 'color': const Color(0xFFE65100)},
-      {'label': 'In Progress', 'key': 'in_progress', 'color': const Color(0xFF1565C0)},
-      {'label': 'Resolved', 'key': 'resolved', 'color': const Color(0xFF388E3C)},
-      {'label': 'Closed', 'key': 'closed', 'color': Colors.grey},
+      {'label': 'Open', 'key': 'open', 'color': context.accentOrange()},
+      {'label': 'In Progress', 'key': 'in_progress', 'color': context.accentBlue()},
+      {'label': 'Resolved', 'key': 'resolved', 'color': context.accentGreen()},
+      {
+        'label': 'Closed',
+        'key': 'closed',
+        'color': context.colors.onSurfaceVariant
+      },
     ];
 
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 12, offset: const Offset(0, 4)),
-        ],
-      ),
+      decoration: context.cardDecoration(radius: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Issues Breakdown',
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A3C6E)),
+            style: context.cardTitleStyle.copyWith(fontSize: 15),
           ),
           const SizedBox(height: 16),
           ...items.map((item) {
@@ -327,9 +509,15 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(item['label'] as String,
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.grey.shade700)),
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: context.colors.onSurfaceVariant)),
                       Text('$count',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+                          style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: color)),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -338,7 +526,7 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
                     child: LinearProgressIndicator(
                       value: pct,
                       minHeight: 8,
-                      backgroundColor: Colors.grey.shade100,
+                      backgroundColor: context.softFill,
                       valueColor: AlwaysStoppedAnimation<Color>(color),
                     ),
                   ),
@@ -362,18 +550,18 @@ class _OwnerAnalyticsScreenState extends State<OwnerAnalyticsScreen> {
   }
 
   Widget _buildError() {
+    final muted = context.colors.onSurfaceVariant;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          Icon(Icons.error_outline, size: 48, color: muted),
           const SizedBox(height: 12),
-          Text(_error!, style: TextStyle(color: Colors.grey.shade500)),
+          Text(_error!, style: TextStyle(color: muted)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _load,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A3C6E),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
@@ -404,13 +592,7 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
-      ),
+      decoration: context.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -426,7 +608,7 @@ class _SummaryCard extends StatelessWidget {
           Text(value,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          Text(label, style: context.mutedBodyStyle.copyWith(fontSize: 12)),
         ],
       ),
     );

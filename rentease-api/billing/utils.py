@@ -49,7 +49,7 @@ def generate_invoice_for_lease(lease: Lease, reference_date: date = None):
             * (Decimal(str(lease_tenant.rent_share_pct)) / Decimal("100"))
         ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-        RentShare.objects.get_or_create(
+        share, _ = RentShare.objects.get_or_create(
             invoice=invoice,
             lease_tenant=lease_tenant,
             defaults={
@@ -65,7 +65,11 @@ def generate_invoice_for_lease(lease: Lease, reference_date: date = None):
                 user=lease_tenant.tenant,
                 title="Rent Due",
                 body=f"Your rent of \u20b9{share_amount} is due on {invoice.due_date}.",
-                data={"type": "invoice", "invoice_id": str(invoice.id)},
+                data={
+                    "type": "rent_due",
+                    "invoice_id": str(invoice.id),
+                    "share_id": str(share.id),
+                },
             )
         except Exception:
             pass

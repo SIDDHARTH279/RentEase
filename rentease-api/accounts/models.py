@@ -79,6 +79,40 @@ class FCMToken(models.Model):
         return f"FCMToken({self.user.email})"
 
 
+class AppNotification(models.Model):
+    """In-app notification history (push is sent separately via FCM)."""
+
+    class NotifType(models.TextChoices):
+        RENT_DUE = "rent_due", "Rent due"
+        RENT_OVERDUE = "rent_overdue", "Rent overdue"
+        PAYMENT_SUCCESS = "payment_success", "Payment success"
+        ISSUE = "issue", "Issue"
+        CHAT = "chat", "Chat"
+        GENERAL = "general", "General"
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    type = models.CharField(
+        max_length=30,
+        choices=NotifType.choices,
+        default=NotifType.GENERAL,
+    )
+    title = models.CharField(max_length=200)
+    body = models.TextField(blank=True, default="")
+    data = models.JSONField(default=dict, blank=True)
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.email}: {self.title}"
+
+
 def invite_expiry():
     return timezone.now() + timedelta(days=7)
 

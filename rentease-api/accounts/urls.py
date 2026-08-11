@@ -1,4 +1,10 @@
 from django.urls import path
+from .activity import ActivityFeedView
+from .notification_views import (
+    NotificationDetailView,
+    NotificationListView,
+    NotificationMarkReadView,
+)
 from .views import (
     RegisterView,
     LoginView,
@@ -19,4 +25,16 @@ urlpatterns = [
     path("invite-tenant/", InviteTenantView.as_view(), name="invite-tenant"),
     path("accept-invite/", AcceptInviteView.as_view(), name="accept-invite"),
     path("fcm-token/", SaveFCMTokenView.as_view(), name="fcm-token"),
+    path("activity/", ActivityFeedView.as_view(), name="activity-feed"),
+    path("notifications/", NotificationListView.as_view(), name="notifications"),
+    path(
+        "notifications/read/",
+        NotificationMarkReadView.as_view(),
+        name="notifications-read",
+    ),
+    path(
+        "notifications/<int:pk>/",
+        NotificationDetailView.as_view(),
+        name="notification-detail",
+    ),
 ]

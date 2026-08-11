@@ -3,3 +3,10 @@ venv/
 __pycache__/
 build/
 .dart_tool/
+.cursor/
+*.pyc
+.DS_Store
+
+# Uploaded user media (keep local only)
+rentease-api/media/
+**/firebase-service-account.json

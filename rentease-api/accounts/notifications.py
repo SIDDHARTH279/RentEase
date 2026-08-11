@@ -14,9 +14,13 @@ def _init_firebase():
         import firebase_admin
         from firebase_admin import credentials
 
-        cred_path = Path(__file__).resolve().parent.parent / "firebase-service-account.json"
+        cred_path = (
+            Path(__file__).resolve().parent.parent / "firebase-service-account.json"
+        )
         if not cred_path.exists():
-            logger.warning("firebase-service-account.json not found — notifications disabled.")
+            logger.warning(
+                "firebase-service-account.json not found — push notifications disabled."
+            )
             return False
 
         if not firebase_admin._apps:
@@ -30,17 +34,77 @@ def _init_firebase():
         return False
 
 
+_TYPE_ALIASES = {
+    "invoice": "rent_due",
+    "overdue_rent": "rent_overdue",
+    "overdue": "rent_overdue",
+    "payment": "payment_success",
+}
+
+
+def _normalize_type(type_value: str | None) -> str:
+    from .models import AppNotification
+
+    raw = (type_value or "general").strip().lower()
+    raw = _TYPE_ALIASES.get(raw, raw)
+    valid = {c.value for c in AppNotification.NotifType}
+    return raw if raw in valid else AppNotification.NotifType.GENERAL
+
+
+def create_notification(
+    user,
+    *,
+    title: str,
+    body: str = "",
+    type: str = "general",
+    data: dict | None = None,
+    push: bool = True,
+):
+    """Persist in-app notification and optionally send FCM push."""
+    from .models import AppNotification
+
+    payload = dict(data or {})
+    notif_type = _normalize_type(type or payload.get("type"))
+    payload.setdefault("type", notif_type)
+
+    notif = AppNotification.objects.create(
+        user=user,
+        type=notif_type,
+        title=title,
+        body=body,
+        data=payload,
+    )
+    if push:
+        send_push(user, title=title, body=body, data=payload)
+    return notif
+
+
 def send_notification(user, title: str, body: str, data: dict = None):
-    """
-    Send a push notification to a single user.
-    Silently skips if Firebase is not configured or user has no token.
-    """
+    """Backward-compatible: create in-app row + push."""
+    payload = data or {}
+    return create_notification(
+        user,
+        title=title,
+        body=body or "",
+        type=payload.get("type", "general"),
+        data=payload,
+        push=True,
+    )
+
+
+def send_push(user, title: str, body: str, data: dict = None):
+    """Send FCM only (no DB row)."""
     if not _init_firebase():
         return
 
     try:
         from firebase_admin import messaging
-        fcm = user.fcm_token
+        from .models import FCMToken
+
+        try:
+            fcm = user.fcm_token
+        except FCMToken.DoesNotExist:
+            return
         if not fcm.token:
             return
 
@@ -51,6 +115,6 @@ def send_notification(user, title: str, body: str, data: dict = None):
             token=fcm.token,
         )
         messaging.send(message)
-        logger.info(f"Notification sent to {user.email}: {title}")
+        logger.info(f"Push sent to {user.email}: {title}")
     except Exception as e:
-        logger.warning(f"Notification failed for {getattr(user, 'email', '?')}: {e}")
+        logger.warning(f"Push failed for {getattr(user, 'email', '?')}: {e}")
